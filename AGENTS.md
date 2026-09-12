@@ -4,7 +4,7 @@ This is a static browser strategy game. The repository is the shared source of t
 
 ## Layout
 
-- `site/game/engine.js`: deterministic, immutable two-player game rules, legal actions, serialization, and practice AI.
+- `site/game/engine.js`: deterministic, immutable 2–4-player rules, team scoring, legal actions, serialization, and practice AI.
 - `site/app.js`: game interface and orchestration. Submit canonical action IDs through `applyAction`; never implement a second rules engine in the UI.
 - `site/scene.js` and `site/world.js`: Three.js board entry point and coastal scene. Rendering takes a small adapter state and must not change game state.
 - `site/dice.js`: a local physics toy, independent of game rules and online transport.
@@ -13,6 +13,7 @@ This is a static browser strategy game. The repository is the shared source of t
 - `scripts/serve.mjs`: dependency-free Node static server for `site/`.
 - `test/`: deterministic rules and mocked transport regression tests.
 - `scripts/browser-smoke.mjs`: real browser playthrough and responsive checks.
+- `scripts/browser-multiplayer.mjs`: 3/4-player local play, shared lobbies, actual WebRTC turn cycles, seat ownership and refresh reconnection checks.
 
 ## Run and verify
 
@@ -31,6 +32,7 @@ npx playwright install chromium
 npm run dev
 # In another terminal:
 node scripts/browser-smoke.mjs
+node scripts/browser-multiplayer.mjs
 ```
 
 The CI runs syntax checks, Node tests, and the browser smoke test. Screenshots and the browser report are attached to the CI run. The live peer-network test may report an unavailable external signaling service; read that report before claiming online validation.

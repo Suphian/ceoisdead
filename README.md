@@ -1,10 +1,10 @@
 # CEO is Dead
 
-An original 3D browser interface for a two-player succession game, with corporate and medieval settings, solo practice, same-screen play, and friend invitations. Read [RULES.md](RULES.md) for the implemented rules and reference. The game lives in `site/`; its rules, interface, and Three.js scene are separate modules so friends can contribute independently.
+An original 3D browser interface for a 2–4-player succession game, with corporate and medieval settings, solo practice, same-screen play, and online invitations. Two and three players compete individually; four players form two teams (seats 1 + 3 versus seats 2 + 4). Read [RULES.md](RULES.md) for the implemented rules and reference. The game lives in `site/`; its rules, interface, and Three.js scene are separate modules so friends can contribute independently.
 
-**Play: https://suph.app** (also https://ceoisdead.vercel.app). Friends can open it without Vercel or ChatGPT accounts. To play the same match, choose **Invite a friend → Start a new online table**, then send the generated invitation link. The plain domain opens the game without joining an existing table. WhatsApp and other link readers can use the static Open Graph artwork and metadata.
+**Play: https://suph.app** (also https://ceoisdead.vercel.app). Friends can open it without Vercel or ChatGPT accounts. Choose **New game → Invite friends**, select **2, 3, or 4 players**, and create the table. Send the same generated invitation link to everyone. Each guest gets a seat and can update their name in the lobby. Once everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table. WhatsApp and other link readers can use the static Open Graph artwork and metadata.
 
-The coastal board includes miniature landmarks, forests, docks, boats, moving water, sculptural faction pieces, move animations, and camera focus. The optional **Dice tray** uses real rigid-body physics; it is a local toy, does not affect the rules, and its rolls are not synchronized with the other player. Reduced-motion mode simulates the roll immediately and shows the resting result.
+The coastal board includes miniature landmarks, forests, docks, boats, moving water, sculptural faction pieces, move animations, and camera focus. The optional **Dice tray** uses real rigid-body physics; it is a local toy, does not affect the rules, and its rolls are not synchronized with other players. Reduced-motion mode simulates the roll immediately and shows the resting result.
 
 ## Run locally
 
@@ -63,7 +63,7 @@ For local-network testing, set `HOST=0.0.0.0` and optionally `PORT` before start
 
 The repository is deployed to Vercel as project **ceoisdead** in team **suph**. `vercel.json` publishes **site** with no install or build command. The production domain is **suph.app**. Git integration supplies production updates from `main` and preview deployments for branches; use a branch preview to review a friend's changes before merging. The existing Netlify configuration remains available as an alternative static host.
 
-The game's online rooms use PeerJS/WebRTC: the host shares an invitation link, keeps the authoritative game state in their browser, and admits one guest. Both players need the host tab open. A disconnect pauses the match; the host can start a fresh online table. These are casual rooms without account authentication, server persistence, or guaranteed connectivity across every network. If the public signaling service or direct connection is unavailable, local play still works.
+Online rooms use PeerJS/WebRTC: up to three guests connect directly to the host, who validates the assigned seat, state revision, and legal move before broadcasting updates. Seats are frozen when the host starts. Any disconnect pauses the entire match. A guest can refresh the same tab or click **Rejoin your seat** while the host remains online. A private resume token in that guest tab's session storage reclaims its original seat; it is never placed in the shared link or public lobby. Closing the host tab loses the room, and a guest who loses their tab's token cannot reclaim a started seat. These are casual rooms without account authentication, server persistence, or guaranteed connectivity across every network. Local play still works when direct connections are unavailable.
 
 ## Project map
 
@@ -75,10 +75,11 @@ The game's online rooms use PeerJS/WebRTC: the host shares an invitation link, k
 - `site/dice.js` — independently loaded Three.js / cannon-es physics tray
 - `site/assets/` — self-contained CC0 GLB models and original licenses
 - `site/og.png` — original generated social sharing artwork
-- `site/room.js` — optional two-player PeerJS transport
+- `site/room.js` — host-star PeerJS transport, lobby, assigned seats and private reconnect tokens
 - `site/game/engine.js` — game state and rules
 - `test/` — dependency-free rules and room transport tests
 - `scripts/serve.mjs` — local static server
 - `scripts/browser-smoke.mjs` — browser gameplay, responsive, and optional real-network checks
+- `scripts/browser-multiplayer.mjs` — larger local tables, multiplayer lobbies, turn ownership and guest refresh reconnection
 
 CI checks JavaScript syntax and runs the rules tests on pushes and pull requests. A separate browser job installs a pinned Playwright version, starts the game, checks interactions, and retains screenshots/logs in its browser-results artifact. The report distinguishes a completed real-network room check from an unavailable signaling/network service. Runtime browser dependencies stay out of the Node package manifest.

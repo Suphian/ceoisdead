@@ -134,9 +134,10 @@ try {
     const guest = await guestContext.newPage();
     guest.on('pageerror', error => errors.push(error.message));
     await guest.goto(link, {waitUntil:'domcontentloaded'});
+    await page.waitForFunction(() => document.querySelector('#start-table')?.disabled === false, null, {timeout:22000});
+    await page.locator('#start-table').click();
     await page.waitForFunction(() => document.querySelector('#connection-label')?.textContent === 'Connected', null, {timeout:22000});
     await guest.waitForFunction(() => document.querySelector('#connection-label')?.textContent === 'Connected', null, {timeout:22000});
-    await page.locator('#invite-modal [data-close]').click();
     await page.locator('[data-testid="pass"]').click();
     await guest.waitForFunction(() => document.querySelector('#pass-button')?.disabled === false, null, {timeout:8000});
     await guest.locator('[data-testid="pass"]').click();

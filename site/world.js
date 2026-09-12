@@ -184,10 +184,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     sailboat(3.47,-2.8,1.35,-.4);sailboat(-4.45,-1.8,1.05,2.6);sailboat(3.2,4.4,.9,.9);
     // Small unclaimed islets make the frame feel like an archipelago.
     for(let i=0;i<8;i++)rock(3.95+Math.sin(i*3)*.34,-.07,-4.8+i*.20,.12+(i%3)*.09);
-    const benchPositions=[new THREE.Vector3(-3.35,.2,5.58),new THREE.Vector3(2.85,.2,5.4)];
-    benchPositions.forEach((p,i)=>{
-      const pad=mesh(slab(roundedRect(1.85,.63,.12),.06,.02),mats.brass,world,p.x,-.1,p.z);
-      for(let f=0;f<3;f++){const pawn=makePawn(f);pawn.position.set(p.x-.5+f*.5,0,p.z);pawn.scale.setScalar(.78);world.add(pawn);}
+    const benchPositions=[new THREE.Vector3(-3.35,.2,5.58),new THREE.Vector3(2.85,.2,5.4),new THREE.Vector3(3.55,.2,-4.8),new THREE.Vector3(-3.75,.2,-4.8)];
+    const benches=benchPositions.map((p,i)=>{
+      const bench=new THREE.Group();world.add(bench);bench.visible=i<2;
+      mesh(slab(roundedRect(1.85,.63,.12),.06,.02),mats.brass,bench,p.x,-.1,p.z);
+      for(let f=0;f<3;f++){const pawn=makePawn(f);pawn.position.set(p.x-.5+f*.5,0,p.z);pawn.scale.setScalar(.78);bench.add(pawn);}
+      return bench;
     });
     const dustGeometry=new THREE.BufferGeometry(),dustPositions=[];
     for(let i=0;i<36;i++)dustPositions.push(Math.sin(i*31.1)*5,1+(i%7)*.35,Math.cos(i*21.7)*5.6);
@@ -202,6 +204,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     function clearLabel(node){if(node.label){node.group.remove(node.label);node.label.material.map.dispose();labelTextures.delete(node.label.material.map);node.label.material.dispose();node.label=null;}}
     function update(state,selectedRegion=null){
       if(disposed)return;selected=typeof selectedRegion==='object'?selectedRegion?.id:selectedRegion;
+      benches.forEach((bench,i)=>bench.visible=i<(state.courts?.length??2));
       const regions=state.regions??[];lastRegions=regions;
       const removed=[];
       for(const region of regions){
@@ -225,7 +228,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
           }else if(!region.resolved&&node.banner){node.group.remove(node.banner);node.banner=null;}
         }
         let slot=0;
-        for(let f=0;f<3;f++)for(let c=0;c<Math.min(16,region.cubes[f]);c++){
+        for(let f=0;f<3;f++)for(let c=0;c<Math.min(18,region.cubes[f]);c++){
           const id=f+'-'+c,target=pawnPosition(slot++);let pawn=node.pawns.get(id);
           if(!pawn){
             pawn=makePawn(f);pawn.position.copy(target);node.group.add(pawn);node.pawns.set(id,pawn);

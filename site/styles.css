@@ -282,6 +282,32 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--brass); }
 .player-name { font-size: 12px; font-weight: 600; }
 .player-status { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
 .player-card.is-active .player-status { color: var(--brass); }
+.player-heading > div { min-width: 0; flex: 1; }
+.player-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell[data-player-count="4"] .player-card { padding: 10px; margin-bottom: 7px; }
+.app-shell[data-player-count="4"] .player-card .court-grid { margin-block: 8px 0; }
+.app-shell[data-player-count="4"] .faction-summary { margin-top: 12px; padding-top: 12px; }
+.app-shell[data-player-count="4"] .activity-list { max-height: 80px; }
+.format-note { color: var(--muted); font-size: 11px; line-height: 1.6; margin-block: 10px 16px; }
+.lobby-seats { list-style: none; padding: 0; margin: 18px 0 10px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+.lobby-seat { display: flex; gap: 9px; align-items: center; padding: 12px 10px; min-width: 0; border: 1px dashed var(--line-strong); border-radius: 6px; background: #ffffff03; }
+.lobby-seat.is-connected { border-style: solid; border-color: #7cb39f60; background: #7cb39f09; }
+.lobby-seat > div { min-width: 0; flex: 1; }
+.lobby-seat strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 12px; white-space: nowrap; }
+.lobby-seat small { display: block; color: var(--muted); font-size: 9px; margin-top: 3px; }
+.seat-state { color: var(--muted); font: 8px var(--mono); white-space: nowrap; }
+.is-connected .seat-state { color: #b5d7c3; }
+.lobby-name { display: flex; align-items: end; gap: 8px; margin-block: 14px; }
+.lobby-name label { flex: 1; }
+#start-table { width: 100%; margin-bottom: 18px; }
+#invite-modal .modal-body { gap: 12px; }
+#invite-modal .lobby-seats, #invite-modal .lobby-name, #invite-modal .format-note, #invite-modal #start-table { margin-block: 0; }
+.invite-sharing { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #ffffff03; }
+.invite-sharing .field-label { margin: 0; }
+#new-game-modal .mode-options { grid-template-columns: repeat(3, minmax(0,1fr)); }
+#new-game-modal .mode-option { padding: 12px 10px; min-height: 105px; }
+#new-game-modal .mode-option:last-child { grid-column: auto; }
+@media (max-width: 560px) { .lobby-seats { grid-template-columns: 1fr; } .lobby-name { align-items: stretch; flex-direction: column; } }
 .player-heading .badge { margin-left: auto; font-size: 8px; padding: 2px 5px; }
 .court-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 13px 0 9px; }
 .court-token { min-height: 30px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 5px; border: 1px solid rgba(206, 219, 215, .05); border-radius: 3px; background: rgba(8, 18, 25, .35); font: 11px var(--mono); }
