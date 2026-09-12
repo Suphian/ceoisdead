@@ -1,0 +1,1 @@
+document.querySelector('#app').innerHTML = '<main class="boot-screen"><span class="eyebrow">CEO IS DEAD</span><h1>The seat is empty.</h1><p>A game of influence and succession.</p><a class="primary-button" href="https://github.com/Suphian/ceoisdead">Follow the build</a></main>';
