@@ -1,6 +1,6 @@
 # CEO is Dead
 
-A browser strategy game being built together. The game lives in `site/`; its rules, interface, and Three.js scene are separate modules so friends can contribute independently.
+An original 3D browser interface for a two-player succession game, with corporate and medieval settings, solo practice, same-screen play, and friend invitations. Read [RULES.md](RULES.md) for the implemented rules and reference. The game lives in `site/`; its rules, interface, and Three.js scene are separate modules so friends can contribute independently.
 
 ## Run locally
 
@@ -57,7 +57,7 @@ For local-network testing, set `HOST=0.0.0.0` and optionally `PORT` before start
 
 ## Share a playable preview
 
-Connect this repository to Netlify. The included `netlify.toml` sets the publish directory to **site** with no build command. Enable Deploy Previews to give each pull request a playable URL that updates after its changes are pushed and deployed. Static hosting does not add synchronized multiplayer; that needs separate game networking.
+Connect this repository to Netlify. The included `netlify.toml` sets the publish directory to **site** with no build command. Enable Deploy Previews to give each pull request a playable URL that updates after its changes are pushed and deployed. The game's online rooms use PeerJS/WebRTC: the host shares an invitation link, keeps the authoritative game state in their browser, and admits one guest. Both players need the host tab open. A disconnect pauses the match; the host can start a fresh online table. These are casual rooms without account authentication, server persistence, or guaranteed connectivity across every network. If the public signaling service or direct connection is unavailable, local play still works.
 
 ## Project map
 
@@ -65,9 +65,10 @@ Connect this repository to Netlify. The included `netlify.toml` sets the publish
 - `site/app.js` — interface and player interactions
 - `site/styles.css` — responsive presentation
 - `site/scene.js` — Three.js board and visual effects
+- `site/room.js` — optional two-player PeerJS transport
 - `site/game/engine.js` — game state and rules
-- `test/` — dependency-free rules tests
+- `test/` — dependency-free rules and room transport tests
 - `scripts/serve.mjs` — local static server
-- `scripts/browser-smoke.mjs` — browser smoke test, when present
+- `scripts/browser-smoke.mjs` — browser gameplay, responsive, and optional real-network checks
 
-CI checks JavaScript syntax and runs the rules tests on pushes and pull requests. When a browser smoke script is present, a separate job installs a pinned Playwright version, starts the game, checks interactions, and retains screenshots/logs in its browser-results artifact. Runtime browser dependencies stay out of the Node package manifest.
+CI checks JavaScript syntax and runs the rules tests on pushes and pull requests. A separate browser job installs a pinned Playwright version, starts the game, checks interactions, and retains screenshots/logs in its browser-results artifact. The report distinguishes a completed real-network room check from an unavailable signaling/network service. Runtime browser dependencies stay out of the Node package manifest.
