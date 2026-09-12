@@ -49,7 +49,7 @@ test('seeded setup is reproducible, balanced, and serializable', () => {
   assert.ok(a.regions.essex.followers.english >= 2);
   assert.equal(a.players[0].hand.length, 8);
   assert.deepEqual(deserializeGame(serializeGame(a)), a);
-  assert.throws(() => createGame({ players: ['Solo'] }), /two players/);
+  assert.throws(() => createGame({ players: ['Solo'] }), /two to four players/);
 });
 
 test('commands are immutable, revision bound, and cannot forge their effects', () => {

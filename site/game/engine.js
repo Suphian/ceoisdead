@@ -1,5 +1,5 @@
 /**
- * Deterministic two-player standard game engine.
+ * Deterministic two-to-four-player standard game engine.
  * Original implementation; rules reference:
  * https://www.ospreypublishing.com/media/3yxddtqg/tkid2_rulebook.pdf
  * No artwork or rulebook prose is included.
@@ -62,11 +62,13 @@ export function createGame(options = {}) {
   const seed = String(options.seed ?? 'the-empty-throne');
   if (seed.length > 128) throw new Error('Seed must be at most 128 characters.');
   const names = options.players ?? ['You', 'Rival'];
-  if (!Array.isArray(names) || names.length !== 2) throw new Error('This table needs exactly two players.');
+  if (!Array.isArray(names) || names.length < 2 || names.length > 4) throw new Error('This table needs two to four players.');
+  const teams = options.teams ?? names.length === 4;
+  if (typeof teams !== 'boolean' || (teams && names.length !== 4)) throw new Error('Teams need exactly four players.');
   const random = seededRandom(seed);
   const regions = Object.fromEntries(R.map(id => [id, { followers: zero(), control: null }]));
   for (const f of F) regions[HOME[f]].followers[f] = 2;
-  const bag = shuffle(F.flatMap(f => Array(14).fill(f)), random);
+  const bag = shuffle(F.flatMap(f => Array(names.length === 2 ? 14 : 16).fill(f)), random);
   const draw = counts => { counts[bag.pop()]++; };
   const players = names.map((name, i) => {
     const court = zero(); draw(court); draw(court);
@@ -76,7 +78,7 @@ export function createGame(options = {}) {
   const supply = zero();
   for (const f of bag) supply[f]++;
   const state = {
-    version: 1, seed, players, regions, supply, order: shuffle(R, random),
+    version: 2, teams, seed, players, regions, supply, order: shuffle(R, random),
     locked: [], round: 0, activePlayer: 0, phase: 'action', passes: 0,
     revision: 0, actionCount: 0, lastAction: null, result: null, log: [],
   };
@@ -189,7 +191,7 @@ export function getLegalActions(state, cardId) {
   }
   const actions = cardId ? [] : [{
     id: state.revision + '/pass', type: 'pass', regions: [],
-    label: state.passes ? 'Pass and resolve ' + nameOf(state.order[state.round]) : 'Pass',
+    label: state.passes === state.players.length - 1 ? 'Pass and resolve ' + nameOf(state.order[state.round]) : 'Pass',
   }];
   for (const id of state.players[state.activePlayer].hand) {
     if (cardId && id !== cardId) continue;
@@ -205,7 +207,7 @@ function pushLog(state, type, text, extra = {}) {
 }
 function finishTurn(state) {
   state.phase = 'action';
-  state.activePlayer = 1 - state.activePlayer;
+  state.activePlayer = (state.activePlayer + 1) % state.players.length;
 }
 function move(state, from, to, faction) {
   state.regions[from].followers[faction]--;
@@ -228,6 +230,36 @@ export function getStandings(state) {
 }
 function scoreEnd(state, type) {
   const ranking = factionRanks(state);
+  if (state.teams) {
+    const teams = [0, 1].map(team => state.players.filter((_, index) => index % 2 === team));
+    let candidates = [0, 1], reason;
+    if (type === 'invasion') {
+      const sets = teams.map(team => Math.min(...F.map(f => team.reduce((n, p) => n + p.court[f], 0))));
+      candidates = candidates.filter(team => sets[team] === Math.max(...sets));
+      reason = Math.max(...sets) + ' combined team faction sets';
+    } else {
+      let leaders = state.players;
+      const secondHasPower = R.some(id => state.regions[id].control === ranking[1]);
+      for (const f of ranking.slice(0, secondHasPower ? 2 : 1)) {
+        const maximum = Math.max(...leaders.map(p => p.court[f]));
+        leaders = leaders.filter(p => p.court[f] === maximum);
+        candidates = [...new Set(leaders.map(p => state.players.indexOf(p) % 2))];
+        if (candidates.length === 1) { reason = 'Strongest individual ' + factionName(f) + ' support wins for the team'; break; }
+      }
+    }
+    if (candidates.length > 1) {
+      const timing = teams.map(team => Math.max(...team.map(p => p.lastActionAt)));
+      const target = type === 'invasion' ? Math.max(...candidates.map(i => timing[i])) : Math.min(...candidates.map(i => timing[i]));
+      candidates = candidates.filter(i => timing[i] === target);
+      reason = type === 'invasion' ? 'Most recent team action breaks the takeover tie' : 'Least recent team action breaks the succession tie';
+    }
+    if (candidates.length > 1) reason = 'Shared victory: both teams remain tied';
+    const winners = state.players.filter((_, i) => candidates.includes(i % 2)).map(p => p.id);
+    state.result = { type, winners, faction: type === 'coronation' ? ranking[0] : null, ranking, reason };
+    state.phase = 'ended';
+    pushLog(state, 'end', (candidates.length === 1 ? 'Team ' + (candidates[0] + 1) + ' wins' : 'Shared team victory') + ' — ' + type + '.', { result: clone(state.result) });
+    return;
+  }
   let tied = state.players;
   let reason;
   if (type === 'invasion') {
@@ -257,7 +289,7 @@ function scoreEnd(state, type) {
     }
   }
   state.result = { type, winners: tied.map(p => p.id), faction: type === 'coronation' ? ranking[0] : null, ranking, reason };
-  if (tied.length > 1) state.result.reason = 'Shared victory: neither tied player took an action';
+  if (tied.length > 1) state.result.reason = 'Shared victory: the tied players took no action';
   state.phase = 'ended';
   pushLog(state, 'end', (tied.length > 1 ? 'Shared victory' : tied[0].name + ' wins') + ' — ' + type + '.', { result: clone(state.result) });
 }
@@ -287,8 +319,8 @@ export function applyAction(state, command) {
   if (action.type === 'pass') {
     next.passes++;
     pushLog(next, 'pass', player.name + ' passes.', { player: player.id });
-    next.activePlayer = 1 - next.activePlayer;
-    if (next.passes === 2) resolveRegion(next);
+    next.activePlayer = (next.activePlayer + 1) % next.players.length;
+    if (next.passes === next.players.length) resolveRegion(next);
   } else if (action.type === 'summon') {
     next.regions[action.region].followers[action.faction]--;
     player.court[action.faction]++;
@@ -344,34 +376,36 @@ export function assertInvariants(state) {
   const checkResult = result => {
     record(result, ['type', 'winners', 'faction', 'ranking', 'reason']);
     if (!['invasion', 'coronation'].includes(result.type)
-      || !Array.isArray(result.winners) || result.winners.length < 1 || result.winners.length > 2
+      || !Array.isArray(result.winners) || result.winners.length < 1 || result.winners.length > state.players.length
       || new Set(result.winners).size !== result.winners.length
-      || result.winners.some(id => !['p1', 'p2'].includes(id))
+      || result.winners.some(id => !state.players.some(p => p.id === id))
       || !permutation(result.ranking, F) || !string(result.reason, 200)
       || (result.type === 'invasion' ? result.faction !== null : result.faction !== result.ranking[0])) fail('result shape');
   };
   record(state, ['version', 'seed', 'players', 'regions', 'supply', 'order', 'locked', 'round',
-    'activePlayer', 'phase', 'passes', 'revision', 'actionCount', 'lastAction', 'result', 'log']);
-  if (state.version !== 1 || !Array.isArray(state.players) || state.players.length !== 2) fail('unsupported state');
+    'activePlayer', 'phase', 'passes', 'revision', 'actionCount', 'lastAction', 'result', 'log', ...(state?.version === 2 ? ['teams'] : [])]);
+  if (![1, 2].includes(state.version) || !Array.isArray(state.players) || !integer(state.players.length, 2, state.version === 1 ? 2 : 4)) fail('unsupported state');
+  const count = state.players.length, factionTotal = count === 2 ? 16 : 18;
+  if (state.version === 2 && (typeof state.teams !== 'boolean' || (state.teams && count !== 4))) fail('team setup');
   if (!string(state.seed, 128)) fail('seed');
   if (!['action', 'summon', 'ended'].includes(state.phase)) fail('phase');
-  if (![0, 1].includes(state.activePlayer)) fail('active player');
+  if (!integer(state.activePlayer, 0, count - 1)) fail('active player');
   if (!integer(state.round, 0, 8)) fail('round');
-  if (!integer(state.revision, 0, 128)) fail('revision');
-  if (!integer(state.actionCount, 0, 16) || state.revision < state.actionCount) fail('action count');
-  if (![0, 1].includes(state.passes) || (state.phase !== 'action' && state.passes !== 0)) fail('pass count');
+  if (!integer(state.revision, 0, 256)) fail('revision');
+  if (!integer(state.actionCount, 0, 8 * count) || state.revision < state.actionCount) fail('action count');
+  if (!integer(state.passes, 0, count - 1) || (state.phase !== 'action' && state.passes !== 0)) fail('pass count');
   if (!permutation(state.order, R)) fail('region order');
   if (!Array.isArray(state.locked) || new Set(state.locked).size !== state.locked.length
-    || state.locked.some(r => !R.includes(r)) || state.locked.length > 2) fail('negotiation locks');
+    || state.locked.some(r => !R.includes(r)) || state.locked.length > count) fail('negotiation locks');
   record(state.regions, R);
   for (const id of R) record(state.regions[id], ['followers', 'control']);
   for (const p of state.players) record(p, ['id', 'name', 'court', 'hand', 'discard', 'lastActionAt']);
   const counts = [state.supply, ...state.players.map(p => p.court), ...R.map(r => state.regions[r].followers)];
   for (const count of counts) {
     record(count, F);
-    for (const f of F) if (!integer(count[f], 0, 16)) fail('negative or invalid follower count');
+    for (const f of F) if (!integer(count[f], 0, factionTotal)) fail('negative or invalid follower count');
   }
-  for (const f of F) if (counts.reduce((n, c) => n + c[f], 0) !== 16) fail('follower conservation');
+  for (const f of F) if (counts.reduce((n, c) => n + c[f], 0) !== factionTotal) fail('follower conservation');
   for (let i = 0; i < state.order.length; i++) {
     const region = state.regions[state.order[i]];
     if (![null, ...F, 'unstable'].includes(region.control)) fail('region control');
@@ -388,13 +422,14 @@ export function assertInvariants(state) {
       || (p.discard.length === 0) !== (p.lastActionAt === 0)) fail('action sequence');
   }
   if (state.actionCount !== state.players.reduce((n, p) => n + p.discard.length, 0)) fail('action count');
-  if (state.players[0].lastActionAt > 0 && state.players[0].lastActionAt === state.players[1].lastActionAt) fail('duplicate action sequence');
+  const actionTimes = state.players.map(p => p.lastActionAt).filter(Boolean);
+  if (new Set(actionTimes).size !== actionTimes.length) fail('duplicate action sequence');
   if (state.lastAction === null) {
     if (state.actionCount !== 0) fail('missing last action');
   } else {
     record(state.lastAction, ['player', 'cardId', 'delta']);
     const last = state.lastAction;
-    if (![0, 1].includes(last.player) || !cardExists(last.cardId)
+    if (!integer(last.player, 0, count - 1) || !cardExists(last.cardId)
       || state.players[last.player].lastActionAt !== state.actionCount
       || state.players[last.player].discard.at(-1) !== last.cardId) fail('last action');
     const deltaKeys = R.flatMap(r => F.map(f => r + ':' + f));
@@ -417,7 +452,7 @@ export function assertInvariants(state) {
     scoreEnd(expected, state.result.type);
     if (JSON.stringify(expected.result) !== JSON.stringify(state.result)) fail('winner does not match board');
   }
-  if (!Array.isArray(state.log) || state.log.length > 128) fail('log size');
+  if (!Array.isArray(state.log) || state.log.length > 256) fail('log size');
   let previousRevision = 0;
   for (const entry of state.log) {
     record(entry, ['revision', 'type', 'text', 'player', 'region', 'faction', 'cardId', 'detail', 'control', 'result'],
@@ -425,7 +460,7 @@ export function assertInvariants(state) {
     if (!integer(entry.revision, Math.max(1, previousRevision), state.revision)
       || !['play', 'pass', 'summon', 'resolve', 'notice', 'end'].includes(entry.type)
       || !string(entry.text, 512) || (entry.detail !== undefined && !string(entry.detail, 2048))
-      || (entry.player !== undefined && !['p1', 'p2'].includes(entry.player))
+      || (entry.player !== undefined && !state.players.some(p => p.id === entry.player))
       || (entry.region !== undefined && !R.includes(entry.region))
       || (entry.faction !== undefined && !F.includes(entry.faction))
       || (entry.cardId !== undefined && !cardExists(entry.cardId))
@@ -462,7 +497,10 @@ export function chooseAIAction(state) {
       }
     }
     const leader = [...F].sort((a, b) => strength[b] - strength[a])[0];
-    const a = position.players[playerIndex].court, b = position.players[1 - playerIndex].court;
+    const allies = position.players.filter((_, i) => i === playerIndex || (position.teams && i % 2 === playerIndex % 2));
+    const opponents = position.players.filter(p => !allies.includes(p));
+    const a = position.players[playerIndex].court;
+    const b = Object.fromEntries(F.map(f => [f, Math.max(...opponents.map(p => p.court[f]))]));
     const sets = Math.min(...F.map(f => a[f])) - Math.min(...F.map(f => b[f]));
     return F.reduce((n, f) => n + (a[f] - b[f]) * (0.4 + strength[f] * 0.35), 0)
       + (a[leader] - b[leader]) * 1.8 + sets * (getStandings(position).instability >= 2 ? 4 : 0.8);
