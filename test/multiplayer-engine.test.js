@@ -116,4 +116,8 @@ test('legacy two-player snapshots and seeds remain supported', () => {
   const state = createGame({ seed: 'legacy' }); state.version = 1; delete state.teams;
   assert.deepEqual(deserializeGame(JSON.stringify(state)), state);
   assertInvariants(pass(state));
+  let draw = createGame({ seed: 'legacy-draw-17' }); draw.version = 1; delete draw.teams;
+  while (draw.phase !== 'ended') draw = pass(draw);
+  assert.equal(draw.result.reason, 'Shared victory: neither tied player took an action');
+  assert.deepEqual(deserializeGame(JSON.stringify(draw)), draw);
 });

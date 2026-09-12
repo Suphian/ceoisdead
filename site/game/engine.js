@@ -289,7 +289,7 @@ function scoreEnd(state, type) {
     }
   }
   state.result = { type, winners: tied.map(p => p.id), faction: type === 'coronation' ? ranking[0] : null, ranking, reason };
-  if (tied.length > 1) state.result.reason = 'Shared victory: the tied players took no action';
+  if (tied.length > 1) state.result.reason = state.version === 1 ? 'Shared victory: neither tied player took an action' : 'Shared victory: the tied players took no action';
   state.phase = 'ended';
   pushLog(state, 'end', (tied.length > 1 ? 'Shared victory' : tied[0].name + ' wins') + ' — ' + type + '.', { result: clone(state.result) });
 }
