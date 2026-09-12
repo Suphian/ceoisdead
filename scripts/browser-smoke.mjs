@@ -59,6 +59,7 @@ try {
   report.checks.push('Game completes and legal action history restores after reload');
   await page.locator('[data-testid="new-game"]').click();
   await page.locator('input[name="mode"][value="solo"]').check();
+  await page.locator('input[name="player-one"]').fill('Ada');
   await page.locator('[data-testid="start-game"]').click();
   await page.locator('[data-testid="pass"]').click();
   await page.waitForFunction(() => document.querySelector('.player-card.is-active .player-name')?.textContent === 'Ada', null, {timeout:20000});
@@ -73,6 +74,12 @@ try {
   console.log('VISUAL_QA_MOBILE:' + (await mobile.screenshot({ type: 'jpeg', quality: 65, fullPage: true })).toString('base64'));
   report.checks.push('Mobile layout has no page-level horizontal overflow');
   await mobileContext.close();
+  try {
+    const previewUrl='https://raw.githack.com/Suphian/ceoisdead/7ae23676bf0a23eb35e4bd800b3b802f97dd14d8/site/index.html';
+    const response=await fetch(previewUrl,{signal:AbortSignal.timeout(15000)});
+    const html=await response.text();
+    report.preview={url:previewUrl,status:response.status,sourceReady:html.includes('src="./app.js"')};
+  } catch(error) {report.preview={error:error.message};}
 
   // Exercise a real two-browser peer connection when the public signaling service is reachable.
   // Unit tests separately enforce protocol correctness without external services.
@@ -100,6 +107,10 @@ try {
     await page.screenshot({path:'test-results/online-status.png',fullPage:true});
   }
   assert.deepEqual(errors, [], 'Uncaught browser exceptions');
+} catch(error) {
+  report.failure=error.message;
+  console.log('BROWSER_FAILURE_REPORT:'+JSON.stringify(report));
+  throw error;
 } finally {
   await writeFile('test-results/browser-report.json', JSON.stringify({...report,errors},null,2));
   await browser.close();
