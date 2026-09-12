@@ -19,6 +19,7 @@ import { GameRoom } from './room.js';
   let roomReady = false, roomLink = '', roomStatus = '', aiTimer = null, scene = null, view = '3d', history = [];
   let actionCache = {revision:-1,actions:[]};
   let sessionEpoch = 0;
+  let diceTray = null, diceLoading = false;
   const storageKey = 'ceoisdead.session.v1';
 
   function newSeed() { return crypto.randomUUID().slice(0,8); }
@@ -84,8 +85,9 @@ import { GameRoom } from './room.js';
           </aside>
           <section class="board-stage" aria-label="Interactive game board">
             <div id="board-canvas"></div>
-            <div class="board-topline"><div class="stage-title"><span class="eyebrow">EIGHT DIVISIONS. THREE FACTIONS. ONE EMPTY SEAT.</span><h1 id="stage-heading">The seat is empty.</h1><p class="stage-description" id="stage-description">Decide who inherits the company.</p></div></div>
-            <div class="camera-controls" aria-label="Board view"><button class="button button-small is-selected" data-command="view-3d" aria-pressed="true" title="Perspective view">3D</button><button class="button button-small" data-command="view-top" aria-pressed="false" title="Overhead view">Top</button></div>
+            <div class="board-topline"><div class="stage-title"><span class="eyebrow">THE SUCCESSION BOARD</span><h1 id="stage-heading">The seat is empty.</h1><p class="stage-description" id="stage-description">Decide who inherits the company.</p></div></div>
+            <div class="camera-controls" aria-label="Board view"><button class="button button-small is-selected" data-command="view-3d" aria-pressed="true" title="Reset perspective view">3D</button><button class="button button-small" data-command="view-top" aria-pressed="false" title="Overhead view">Top</button><button class="button button-small" data-command="focus" title="Focus selected division or current contest">Focus</button></div>
+            <button class="dice-launcher" data-command="dice" aria-haspopup="dialog"><span aria-hidden="true">⚄</span><span>Dice tray<small>A little luck on the side</small></span></button>
             <div id="board-fallback" hidden></div>
             <div class="board-overlay" id="result-overlay" hidden></div>
             <p class="board-help" id="board-help"><span aria-hidden="true">↔</span> Drag to orbit · Scroll to zoom · Select a division</p>
@@ -123,6 +125,8 @@ import { GameRoom } from './room.js';
     $('#app').addEventListener('click',onClick);
     $('#app').addEventListener('change',onChange);
     $('#new-game-form').addEventListener('submit',onNewGame);
+    $('#app').insertAdjacentHTML('beforeend', `<dialog class="modal dice-modal" id="dice-modal" aria-labelledby="dice-title"><div class="modal-card"><header class="modal-header"><div><span class="eyebrow">A LITTLE LUCK ON THE SIDE</span><h2 id="dice-title">Let them roll.</h2></div><button class="modal-close" data-close aria-label="Close dice tray">×</button></header><div id="dice-canvas"></div><div class="dice-caption"><p id="dice-result" role="status" aria-live="polite">Preparing your tray…</p><p class="muted">Just for fun. These rolls don't affect the match.</p></div><footer class="modal-footer"><button class="button button-primary" data-command="roll-dice" id="roll-dice" disabled>Roll dice <span aria-hidden="true">↻</span></button></footer></div></dialog>`);
+    $('#dice-modal').addEventListener('close',()=>{if(!$('#dice-modal').open){diceTray?.dispose();diceTray=null;}});
     for(const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
   }
 
@@ -183,13 +187,14 @@ import { GameRoom } from './room.js';
     if(game.phase==='ended')$('#result-overlay').innerHTML=`<div class="result-card"><span class="eyebrow">${game.result.type==='invasion'?'A HOSTILE TAKEOVER':'THE FINAL VOTE'}</span><h2>${escape(winnerText())}</h2><p>${escape(words(game.result.reason))}</p><button class="button button-primary" data-command="new-game">Play again <span aria-hidden="true">↗</span></button></div>`;
   }
   function sceneState() {
-    return{regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.order[game.round]===r.id};})};
+    return{courts:game.players.map(p=>factionIds.map(f=>p.court[f])),regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.order[game.round]===r.id};})};
   }
   function updateScene() { if(scene)try{scene.update(sceneState(),selectedRegion);}catch{useFallback();} }
   function renderFallback() {
     $('#board-fallback').innerHTML=`<div class="fallback-board">${REGIONS.map(r=>{const t=game.regions[r.id];return`<button class="territory ${selectedRegion===r.id?'is-selected':''} ${game.order[game.round]===r.id?'is-current':''}" data-region="${r.id}"><strong>${escape(regionName(r.id))}</strong><span>${t.control?(t.control==='unstable'?'× Deadlock':escape(factionName(t.control))):factionIds.map(f=>token(f,t.followers[f])).join('')}</span></button>`;}).join('')}</div>`;
   }
   function useFallback() {
+    document.documentElement.dataset.scene='fallback';
     scene?.dispose();scene=null;$('#board-canvas').hidden=true;$('#board-fallback').hidden=false;
     $('#board-help').textContent='Accessible board view · Select a division to plan your move';
     $('.camera-controls').hidden=true;
@@ -230,16 +235,34 @@ import { GameRoom } from './room.js';
     switch(button.dataset.command) {
       case'new-game':$('#new-game-form').elements.theme.value=theme;$('#new-game-modal').showModal();break;
       case'rules':showRules();break;
+      case'dice':openDice();break;
+      case'roll-dice':diceTray?.roll();break;
+      case'focus':scene?.focusRegion(selectedRegion||game.order[game.round]);break;
       case'invite':updateInvite();$('#invite-modal').showModal();break;
       case'clear':selectedCard=null;selectedRegion=null;selectedAction=null;render();break;
       case'pass':{const action=legal().find(a=>a.type==='pass');if(action)advance(action.id);break;}
       case'confirm-move':if(selectedAction)advance(selectedAction);break;
-      case'view-3d':case'view-top':view=button.dataset.command==='view-top'?'top':'3d';scene?.setView(view);for(const b of document.querySelectorAll('.camera-controls button')){const active=b===button;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));}break;
+      case'view-3d':case'view-top':view=button.dataset.command==='view-top'?'top':'3d';scene?.setView(view);for(const b of document.querySelectorAll('.camera-controls button[aria-pressed]')){const active=b===button;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));}break;
       case'create-room':$('#invite-modal').close();$('#new-game-form').elements.mode.value='online';$('#new-game-modal').showModal();break;
       case'copy-link':copyLink();break;
     }
   }
   function onChange(event) { if(event.target.id==='action-choice'){selectedAction=event.target.value||null;renderMovePanel();} }
+  async function openDice() {
+    const dialog=$('#dice-modal');if(!dialog.open)dialog.showModal();
+    if(diceTray||diceLoading)return;
+    diceLoading=true;$('#roll-dice').disabled=true;$('#dice-result').textContent='Preparing your tray…';
+    try {
+      const {createDiceTray}=await import('./dice.js');
+      if(!dialog.open)return;
+      diceTray=createDiceTray($('#dice-canvas'),{
+        onRolling(rolling){$('#roll-dice').disabled=rolling;if(rolling)$('#dice-result').textContent='Rolling…';},
+        onResult(values){$('#dice-result').textContent=values?`${values[0]} + ${values[1]} = ${values[0]+values[1]}`:'A die landed on an edge. Roll again.';}
+      });
+      $('#roll-dice').disabled=false;$('#dice-result').textContent='Your luck is waiting.';
+    } catch(error) {$('#dice-result').textContent='The 3D tray could not load. Close it and try again.';console.warn('Dice tray unavailable:',error.message);}
+    finally {diceLoading=false;}
+  }
   function onNewGame(event) {
     event.preventDefault();
     const form=new FormData(event.currentTarget),nextMode=form.get('mode');
@@ -312,5 +335,5 @@ import { GameRoom } from './room.js';
   if(!incomingRoom)restore();
   mount();render();setupScene();
   if(incomingRoom&&/^[a-zA-Z0-9_-]{1,100}$/.test(incomingRoom))joinRoom(incomingRoom);
-  window.addEventListener('beforeunload',()=>{clearTimeout(aiTimer);room?.close();scene?.dispose();});
+  window.addEventListener('beforeunload',()=>{clearTimeout(aiTimer);room?.close();scene?.dispose();diceTray?.dispose();});
   document.documentElement.dataset.game='ready';

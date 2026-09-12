@@ -6,7 +6,8 @@ This is a static browser strategy game. The repository is the shared source of t
 
 - `site/game/engine.js`: deterministic, immutable two-player game rules, legal actions, serialization, and practice AI.
 - `site/app.js`: game interface and orchestration. Submit canonical action IDs through `applyAction`; never implement a second rules engine in the UI.
-- `site/scene.js`: original Three.js board. Rendering takes a small adapter state and must not change game state.
+- `site/scene.js` and `site/world.js`: Three.js board entry point and coastal scene. Rendering takes a small adapter state and must not change game state.
+- `site/dice.js`: a local physics toy, independent of game rules and online transport.
 - `site/room.js`: peer transport. The host must verify guest seat, revision, and legal action IDs before applying a move.
 - `site/styles.css`: responsive interface styles.
 - `scripts/serve.mjs`: dependency-free Node static server for `site/`.

@@ -12,17 +12,51 @@ async function ready(page) {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.documentElement.dataset.game === 'ready');
   await page.waitForFunction(() => ['ready', 'fallback'].includes(document.documentElement.dataset.scene), null, { timeout: 45000 });
+  if (await page.locator('#board-canvas').isVisible()) {
+    await page.waitForFunction(() => document.querySelector('#board-canvas').dataset.assets === 'ready', null, { timeout: 45000 });
+  }
 }
 try {
   const context = await browser.newContext({ viewport: { width: 1512, height: 982 }, reducedMotion: 'reduce', ignoreHTTPSErrors: true });
   const page = await context.newPage();
   await ready(page);
   report.scene = await page.evaluate(() => document.documentElement.dataset.scene);
+  assert.equal(report.scene, 'ready', 'The WebGL test browser must render the 3D board');
   assert.equal(await page.locator('#hand .action-card').count(), 8);
   assert.equal(await page.locator('#region-rail .region-tab').count(), 8);
   await page.screenshot({ path: 'test-results/desktop.png', fullPage: true });
-  console.log('VISUAL_QA_DESKTOP:' + (await page.screenshot({ type: 'jpeg', quality: 65, fullPage: true })).toString('base64'));
   report.checks.push('Initial board, eight regions and eight cards render');
+  await page.locator('[data-command="view-top"]').click();
+  assert.equal(await page.locator('[data-command="view-top"]').getAttribute('aria-pressed'), 'true');
+  await page.locator('[data-command="focus"]').click();
+  await page.locator('[data-command="view-3d"]').click();
+  const initialSave = await page.evaluate(() => localStorage.getItem('ceoisdead.session.v1'));
+  await page.locator('[data-command="dice"]').click();
+  await page.waitForFunction(() => document.querySelector('#dice-canvas').dataset.ready === 'true', null, { timeout: 30000 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  // Reopening constructs the tray with normal motion for the actual physics check.
+  await page.locator('#dice-modal [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('#dice-canvas canvas'));
+  await page.locator('[data-command="dice"]').click();
+  await page.waitForFunction(() => document.querySelector('#dice-canvas').dataset.ready === 'true');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.locator('#roll-dice').click();
+    assert.equal(await page.locator('#roll-dice').isDisabled(), true);
+    await page.waitForFunction(() => document.querySelector('#dice-canvas').dataset.rolling === 'false', null, { timeout: 16000 });
+    const result = await page.locator('#dice-canvas').getAttribute('data-values');
+    if (result) {
+      const values = result.split(',').map(Number);
+      assert.ok(values.length === 2 && values.every(v => Number.isInteger(v) && v >= 1 && v <= 6));
+      assert.equal(await page.locator('#dice-result').textContent(), `${values[0]} + ${values[1]} = ${values[0] + values[1]}`);
+    } else assert.match(await page.locator('#dice-result').textContent(), /edge/);
+  }
+  await page.screenshot({path:'test-results/dice-tray.png'});
+  await page.locator('#dice-modal [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('#dice-canvas canvas'));
+  assert.equal(await page.locator('#dice-canvas canvas').count(), 0, 'Closing the tray releases its renderer');
+  assert.equal(await page.evaluate(() => localStorage.getItem('ceoisdead.session.v1')), initialSave, 'Dice do not change the match');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  report.checks.push('Models load, camera views work, physics rolls settle and the dice tray leaves the match unchanged');
   await page.locator('[data-command="rules"]').click();
   assert.equal(await page.locator('#rules-modal').isVisible(), true);
   await page.locator('#rules-modal [data-close]').first().click();
@@ -71,11 +105,18 @@ try {
   const widths = await mobile.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: innerWidth }));
   assert.ok(widths.content <= widths.viewport + 1, 'Mobile page overflows: ' + JSON.stringify(widths));
   await mobile.screenshot({ path: 'test-results/mobile.png', fullPage: true });
-  console.log('VISUAL_QA_MOBILE:' + (await mobile.screenshot({ type: 'jpeg', quality: 65, fullPage: true })).toString('base64'));
+  await mobile.locator('[data-command="dice"]').click();
+  await mobile.waitForFunction(() => document.querySelector('#dice-canvas').dataset.ready === 'true', null, {timeout:30000});
+  await mobile.locator('#roll-dice').click();
+  await mobile.waitForFunction(() => document.querySelector('#dice-canvas').dataset.rolling === 'false');
+  const modalBounds = await mobile.locator('#dice-modal').boundingBox();
+  assert.ok(modalBounds.x >= 0 && modalBounds.x + modalBounds.width <= 391);
+  await mobile.screenshot({path:'test-results/mobile-dice.png'});
+  await mobile.locator('#dice-modal [data-close]').click();
   report.checks.push('Mobile layout has no page-level horizontal overflow');
   await mobileContext.close();
   try {
-    const previewUrl='https://raw.githack.com/Suphian/ceoisdead/7ae23676bf0a23eb35e4bd800b3b802f97dd14d8/site/index.html';
+    const previewUrl='https://suph.app/';
     const response=await fetch(previewUrl,{signal:AbortSignal.timeout(15000)});
     const html=await response.text();
     report.preview={url:previewUrl,status:response.status,sourceReady:html.includes('src="./app.js"')};
