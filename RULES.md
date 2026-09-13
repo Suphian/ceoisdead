@@ -66,7 +66,7 @@ For the standard team experience, avoid tactical discussion and showing teammate
 - Only when **neither tied team exhausted both hands**, a final team coronation tie compares the latest card play by either teammate and favors the earlier team timestamp.
 - Indistinguishable action timing produces a shared victory. If no followers remain anywhere on the board after a card, recruitment is impossible and the turn advances.
 
-The interface offers two- and three-player individual play and four-player teams, with practice rivals, same-screen play, and online tables. Advanced asymmetric cards are outside this version. Dice, portraits, music, lighting, and Roman architecture do not change legal moves or scoring. The field guide is an introduction; this document records the card details and edge cases.
+The interface offers two- and three-player individual play and four-player teams, with practice rivals, same-screen play, and online tables. Advanced asymmetric cards are outside this version. Portraits, music, lighting, and Roman architecture do not change legal moves or scoring. There are no dice, and the dice tray has been removed. The field guide is an introduction; this document records the card details and edge cases.
 
 Mechanics reference: [Osprey's official The King Is Dead: Second Edition rulebook](https://www.ospreypublishing.com/media/3yxddtqg/tkid2_rulebook.pdf), by Peer Sylvester. PDF pages: setup 4, play 6, victory 7, four-player teams 8, and standard cards 9. The prose here is an original summary; the interpretations above identify prototype choices.
 

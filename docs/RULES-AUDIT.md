@@ -25,7 +25,7 @@ Scope: the eight-card standard game for two or three individuals, or four player
 | Invasion | The third unstable region ends the game immediately, including on the eighth settlement. Individuals compare complete three-faction sets, then latest card play. | p. 7 |
 | Coronation | Otherwise settle all eight regions. Rank factions by claims, then latest claim. Compare individual support for the leading faction, then the second faction, then the first exhausted hand. | p. 7 |
 | Four-player scoring | Seats 1+3 and 2+4 are teams. Keep courts separate for coronation; an individual winner wins with their teammate. Combine courts before counting invasion sets. Invasion ties use the team's latest card; coronation ties prioritize the first team to exhaust both hands. | p. 8 |
-| Dice | The rules engine has no dice action or roll-dependent outcome. The separate tray is a local toy; browser smoke coverage verifies it leaves the saved match unchanged. | Standard actions, pp. 6, 9 |
+| Dice | The rules engine has no dice action or roll-dependent outcome. The separate dice tray and its controls have been removed from the app. | Standard actions, pp. 6, 9 |
 
 `site/game/engine.js` owns these decisions. `test/engine.test.js`, `test/multiplayer-engine.test.js`, and `test/rules-audit.test.js` check setup, card boundaries, turn transitions, endings, serialization, and deterministic replays.
 
