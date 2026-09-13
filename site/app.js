@@ -175,10 +175,10 @@ import { createGameLibrary } from './game-library.js';
     $('#mode-badge').textContent=mode==='solo'?'PRACTICE':mode==='online'?'ONLINE':'LOCAL';
     $('#round-summary').innerHTML=`<div class="round-number">${String(Math.min(game.round+1,8)).padStart(2,'0')}<span>/ 08</span></div><p class="round-summary">${game.phase==='ended'?'The succession is settled.':`Next to decide<br><strong>${escape(regionName(current))}</strong>`}</p>`;
     $('#agenda').innerHTML=game.order.map((id,i)=>{const control=game.regions[id].control;return `<li class="agenda-item ${i===game.round?'is-current':''} ${i<game.round?'is-resolved':''}"><span class="agenda-number">${String(i+1).padStart(2,'0')}</span><span class="agenda-name">${escape(regionName(id))}${game.locked.includes(id)?'<span title="Order locked" aria-label="Order locked"> ·</span>':''}</span><span class="agenda-marker" style="--faction:${factionMeta[control]?.color??'#87949b'}">${control==='unstable'?'×':control?factionMeta[control].symbol:i===game.round?'←':'·'}</span></li>`;}).join('');
-    $('#players').innerHTML=game.players.map((p,i)=>`<section class="player-card ${i===game.activePlayer&&game.phase!=='ended'&&(mode!=='online'||roomReady)?'is-active':''} ${personalSeat()===i?'is-you':''}" style="--court:${COURT[i].color}">${personalSeat()===i?'<span class="player-you">YOU</span>':''}<div class="player-heading">${portrait(i)}<div><strong class="player-name">${escape(p.name)}</strong><span class="player-status">${escape(playerStatus(i))}</span></div><span class="card-count" title="Action cards remaining">${p.hand.length}<small>/8</small></span></div><div class="court-grid">${factionIds.map(f=>token(f,p.court[f])).join('')}</div></section>`).join('');
+    $('#players').innerHTML=game.players.map((p,i)=>`<section class="player-card ${i===game.activePlayer&&!tablePaused&&game.phase!=='ended'&&(mode!=='online'||roomReady)?'is-active':''} ${personalSeat()===i?'is-you':''}" style="--court:${COURT[i].color}">${personalSeat()===i?'<span class="player-you">YOU</span>':''}<div class="player-heading">${portrait(i)}<div><strong class="player-name">${escape(p.name)}</strong><span class="player-status">${escape(playerStatus(i))}</span></div><span class="card-count" title="Action cards remaining">${p.hand.length}<small>/8</small></span></div><div class="court-grid">${factionIds.map(f=>token(f,p.court[f])).join('')}</div></section>`).join('');
     $('#factions').innerHTML=factionIds.map(f=>`<div class="faction-row"><span class="faction-dot" style="--faction:${factionMeta[f].color}">${factionMeta[f].symbol}</span><span class="stat-label">${escape(factionName(f))}</span><span class="stat-value">${standings.factions.find(r=>r.id===f).regions}<span> / ${game.supply[f]}</span></span></div>`).join('')+`<div class="faction-row"><span class="faction-dot" style="--faction:#87949b">×</span><span class="stat-label">Instability</span><span class="stat-value">${standings.instability}<span> / 3</span></span></div>`;
     $('#activity').innerHTML=game.log.slice(-4).reverse().map(item=>`<li class="activity-item">${escape(words(item.text))}</li>`).join('')||'<li class="activity-item muted">The old order is over. The next move is yours.</li>';
-    $('#region-rail').innerHTML=game.order.map(id=>{const r=game.regions[id];return `<button class="region-tab ${selectedRegion===id?'is-selected':''} ${current===id?'is-current':''} ${r.control?'is-resolved':''}" data-region="${id}" aria-pressed="${selectedRegion===id}" aria-label="${escape(regionName(id))}, ${r.control?r.control==='unstable'?'deadlocked':escape(factionName(r.control))+' control':factionIds.map(f=>r.followers[f]+' '+factionName(f)).join(', ')}"><span><b class="region-order">${r.control?'? LOCKED':current===id?'NEXT':game.order.indexOf(id)+1}</b> ${escape(regionName(id))}</span><small>${r.control?(r.control==='unstable'?'× Deadlock':escape(factionName(r.control))):factionIds.map(f=>`<i style="color:${factionMeta[f].color}">${factionMeta[f].symbol} ${r.followers[f]}</i>`).join(' ')}</small></button>`;}).join('');
+    $('#region-rail').innerHTML=game.order.map(id=>{const r=game.regions[id];return `<button class="region-tab ${selectedRegion===id?'is-selected':''} ${current===id?'is-current':''} ${r.control?'is-resolved':''}" data-region="${id}" aria-pressed="${selectedRegion===id}" aria-label="${escape(regionName(id))}, ${r.control?r.control==='unstable'?'deadlocked':escape(factionName(r.control))+' control':factionIds.map(f=>r.followers[f]+' '+factionName(f)).join(', ')}"><span><b class="region-order">${r.control?'LOCKED':current===id?'NEXT':game.order.indexOf(id)+1}</b> ${escape(regionName(id))}</span><small>${r.control?(r.control==='unstable'?'× Deadlock':escape(factionName(r.control))):factionIds.map(f=>`<i style="color:${factionMeta[f].color}">${factionMeta[f].symbol} ${r.followers[f]}</i>`).join(' ')}</small></button>`;}).join('');
     $('#connection-label').textContent=mode==='online'?(roomReady?'Connected':roomLobby?.started?'Paused':roomLobby?`${roomLobby.seats.filter(s=>s.connected).length}/${game.players.length} joined`:'Connecting'):'Local';
     $('#connection-dot').style.background=mode==='online'&&!roomReady?'#dfbd81':'#86b6a0';
     $('#stage-heading').textContent=game.phase==='ended'?'A new reign begins.':regionName(current);
@@ -186,7 +186,7 @@ import { createGameLibrary } from './game-library.js';
     $('#stage-description').textContent=game.phase==='ended'?words(game.result.reason):`${game.passes} of ${game.players.length} consecutive passes to lock this region. Playing a card resets the count.`;
     $('#turn-portrait').innerHTML=portrait(game.activePlayer);
     $('#pass-count').textContent=game.phase!=='ended'?`${game.passes} / ${game.players.length} TO SETTLE`:'';
-    $('#pass-button').hidden=game.phase!=='action'||(mode==='online'&&!roomReady);$('#pass-button').disabled=!mine;
+    $('#pass-button').hidden=tablePaused||game.phase!=='action'||(mode==='online'&&!roomReady);$('#pass-button').disabled=!mine;
     $('#pass-button').innerHTML=game.passes===game.players.length-1?'Pass & settle <span aria-hidden="true">→</span>':'Pass turn <span aria-hidden="true">→</span>';
     $('#clear-button').hidden=!selectedCard&&!selectedRegion;
     const cardPlayer=mode==='online'?(game.players[localSeat]??game.players[0]):mode==='solo'?game.players[0]:active;
@@ -253,6 +253,7 @@ import { createGameLibrary } from './game-library.js';
     let target=guidance.target;
     if(target==='#start-table'&&!$('#invite-modal').open)target='#lobby-action';
     if(target==='#hand')target='#hand .action-card:not(:disabled)';
+    if(target==='#region-rail')target='#region-rail .region-tab:not(.is-resolved)';
     if(target==='#move-panel .move-options')target='#move-panel .move-options button';
     if(coachEnabled&&target)for(const node of document.querySelectorAll(target))node.classList.add('is-guided');
     for(const card of document.querySelectorAll('#hand .action-card')) {
@@ -387,7 +388,7 @@ import { createGameLibrary } from './game-library.js';
       <li class="rules-step"><strong>Passing can be a power move.</strong><p>${game.players.length} consecutive passes settle the next region on the agenda. The faction with the most allies there takes control. A tie creates deadlock. Settled regions cannot be changed.</p></li>
       <li class="rules-step"><strong>Win the succession.</strong><p>After all eight regions settle, rank factions by regions held, then most recent victory. The contender with the most support in the leading faction wins; ties compare the second faction, then who first used all eight cards. If none of the tied players did, earlier last card play breaks the tie. ${game.teams?'In this four-player game, the winning contender brings their teammate to victory. Team courts remain separate for this ending.':''}</p></li>
       <li class="rules-step"><strong>Watch for an invasion.</strong><p>Three deadlocked regions end the game immediately. ${game.teams?'Combine the allies held by seats 1 + 3 and by seats 2 + 4 before counting complete faction sets. The team with more sets wins; ties favor the latest card played by either teammate.':'The contender with the most complete sets of three different allies wins. A tie favors the most recent card play.'}</p></li>
-    </ol>${game.teams?'<p class="muted">Seats 1 + 3 form Team 1; seats 2 + 4 form Team 2. Take turns in seat order. For the standard team experience, avoid tactical discussion and showing teammates your hand. A final succession tie compares each team’s latest card play and favors the earlier team.</p>':''}<p class="muted">The client keeps complete game state; it does not enforce hand secrecy. “Negotiate” changes the agenda, not the allies. “Outmanoeuvre” requires neighboring regions. You must use each card's fullest legal effect; the move picker enforces this.</p><a href="https://github.com/Suphian/the-toga-is-dead/blob/main/RULES.md" target="_blank" rel="noopener">Read the full rules &amp; card reference ↗</a>`;
+    </ol>${game.teams?'<p class="muted">Seats 1 + 3 form Team 1; seats 2 + 4 form Team 2. Take turns in seat order. For the standard team experience, avoid tactical discussion and showing teammates your hand. A final succession tie favors the team that first used all its cards. If no tied team did, earlier last team card play breaks the tie.</p>':''}<p class="muted">The client keeps complete game state; it does not enforce hand secrecy. “Negotiate” changes the agenda, not the allies. “Outmanoeuvre” requires neighboring regions. You must use each card's fullest legal effect; the move picker enforces this.</p><a href="https://github.com/Suphian/the-toga-is-dead/blob/main/RULES.md" target="_blank" rel="noopener">Read the full rules &amp; card reference ↗</a>`;
     $('#rules-modal').showModal();
   }
   function playerStatus(i) {
@@ -418,6 +419,7 @@ import { createGameLibrary } from './game-library.js';
       onLobby(lobby){
         if(epoch!==sessionEpoch)return;
         roomLobby=lobby;localSeat=room?.seat??localSeat;roomReady=room?.ready??false;
+        characters=lobby.seats.map(s=>s.character);
         if(game.players.length===lobby.capacity&&!lobby.started)game={...game,players:game.players.map((p,i)=>({...p,name:lobby.seats[i].name}))};
         render();
       },
@@ -447,6 +449,7 @@ import { createGameLibrary } from './game-library.js';
       const result=await makeRoom().host(game,{character:characters[0]});
       if(epoch!==sessionEpoch)return;
       const inviteUrl=new URL(result.url);inviteUrl.searchParams.set('theme',theme);roomLink=inviteUrl.href;
+      window.history.replaceState({},'',roomLink);
       updateInvite();render();
     }catch(error){if(epoch!==sessionEpoch)return;roomStatus=error.message;roomReady=false;updateInvite();toast(error.message);}
   }
@@ -454,7 +457,7 @@ import { createGameLibrary } from './game-library.js';
     let token='',name='',character;
     try{token=sessionStorage.getItem('ceoisdead.seat.'+id)||'';name=localStorage.getItem('ceoisdead.name')||'';}catch{}
     try{const saved=localStorage.getItem('togaisdead.character');if(saved!==null&&Number.isInteger(Number(saved))&&Number(saved)>=0&&Number(saved)<4)character=Number(saved);}catch{}
-    if(name.trim().toLowerCase()==='you')name='';
+    if(name.trim().toLowerCase()==='you'||/^player\s*\d+$/i.test(name.trim()))name='';
     resetGame('online',['Player 1','Player 2']);
     localSeat=null;joiningRoomId=id;
     const inviteUrl=new URL(location.href);inviteUrl.searchParams.set('room',id);inviteUrl.searchParams.set('theme',theme);
@@ -530,6 +533,7 @@ import { createGameLibrary } from './game-library.js';
         const result=await makeRoom().resumeHost(roomCheckpoint);
         if(epoch!==sessionEpoch)return;
         roomLink=roomUrl(result.roomId);updateInvite();render();
+        window.history.replaceState({},'',roomLink);
       }catch(error){if(epoch!==sessionEpoch)return;roomStatus=error.message;updateInvite();toast(error.message);}
     }else{
       joiningRoomId=entry.room.roomId;guestToken=entry.room.token;
@@ -554,7 +558,7 @@ import { createGameLibrary } from './game-library.js';
   mount();
   turnFeedback=createTurnFeedback();
   experience=createExperience({getContext:()=>({game,mode,theme,roomReady,localSeat}),onLighting:value=>scene?.setLighting(value),onNewGame:nextMode=>{const form=$('#new-game-form');form.elements.mode.value=nextMode;form.elements.theme.value=theme;$('#player-count').value=String(game.players.length);updateNewGameForm();$('#new-game-modal').showModal();},onFullRules:showRules});
-  if(savedEntry){tablePaused=true;}
+  if(savedEntry||incomingRoom){tablePaused=true;}
   render();setupScene();
   if(savedEntry)resumeSavedGame(savedEntry.id);
   else if(incomingRoom&&/^[a-zA-Z0-9_-]{1,100}$/.test(incomingRoom))joinRoom(incomingRoom);

@@ -56,6 +56,8 @@
 .saved-game-actions .button{font-size:11px;}
 .games-empty{padding:12px 0;}
 @media(min-width:1001px){
+  .action-card:hover:not(:disabled),.action-card.is-selected{transform:translateY(-2px);}
+  .turn-bar{position:relative;z-index:1;}
   .briefing-panel.has-coach>.panel-heading,.briefing-panel.has-coach>#round-summary,.briefing-panel.has-coach>.agenda{display:none;}
   .briefing-panel.has-coach{padding-inline:15px;}
   .turn-copy p{font-size:10px;}
