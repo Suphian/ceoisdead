@@ -49,11 +49,11 @@ An exchange cannot exactly reverse another player's most recent card play using 
 
 **Invasion:** the third unstable region ends the game immediately. Count complete sets of one follower from each faction in each court. The most sets wins; a tie favors the contender who most recently played a card.
 
-**Coronation:** otherwise, resolve all eight regions. Rank factions by regions claimed, breaking faction ties in favor of the most recent claim. Compare contenders' followers of the first-ranked faction, then the second-ranked faction. If still tied, the contender whose final card play happened earliest wins, subject to the interpretations below. The Roman presentation calls this the imperial succession.
+**Coronation:** otherwise, resolve all eight regions. Rank factions by regions claimed, breaking faction ties in favor of the most recent claim. Compare contenders' followers of the first-ranked faction, then the second-ranked faction. If still tied, the tied contender who first played all eight cards wins. A tied contender with an exhausted hand takes precedence over one who still has cards; if none exhausted their hand, use the interpretation below. The Roman presentation calls this the imperial succession.
 
 ### Four-player teams
 
-Keep teammates' hands and courts separate during play. At coronation, compare **individual** courts; a winning contender wins for their entire team. If contenders from both teams remain tied after comparing faction support, apply team action timing below.
+Keep teammates' hands and courts separate during play. At coronation, compare **individual** courts; a winning contender wins for their entire team. If contenders from both teams remain tied after comparing faction support, the tied team that first played all its cards wins: both teammates must have exhausted their hands. A fully spent team takes precedence over an unspent team. If neither tied team exhausted both hands, apply the timing interpretation below.
 
 For invasion, **combine teammates' courts before counting complete sets**. The team with the most combined sets wins. A tie favors the team whose member most recently played a card. Both winning teammates appear in the result.
 
@@ -61,9 +61,9 @@ For the standard team experience, avoid tactical discussion and showing teammate
 
 ## Explicit prototype interpretations
 
-- The final coronation tiebreak compares when each contender **last played a card**, even if cards remain. This extends the publisher's hand-exhaustion wording to unspent hands; exhausting a hand is not required.
+- Only when **none of the tied contenders exhausted their hand**, the final coronation tiebreak compares when each last played a card and favors the earlier timestamp. The published hand-exhaustion rule still takes priority whenever a tied contender used all eight cards.
 - If only one faction controls regions, neither remaining faction has a claim to rank second. Skip secondary-faction support and use action timing.
-- For a final team coronation tie, compare the latest card play by either member of each tied team and favor the earlier team timestamp. This uses the same unspent-hand interpretation.
+- Only when **neither tied team exhausted both hands**, a final team coronation tie compares the latest card play by either teammate and favors the earlier team timestamp.
 - Indistinguishable action timing produces a shared victory. If no followers remain anywhere on the board after a card, recruitment is impossible and the turn advances.
 
 The interface offers two- and three-player individual play and four-player teams, with practice rivals, same-screen play, and online tables. Advanced asymmetric cards are outside this version. Dice, portraits, music, lighting, and Roman architecture do not change legal moves or scoring. The field guide is an introduction; this document records the card details and edge cases.
@@ -73,5 +73,7 @@ Mechanics reference: [Osprey's official The King Is Dead: Second Edition ruleboo
 ## Implementation notes
 
 `site/game/engine.js` is deterministic and browser-independent. Canonical action IDs identify a legal effect at a specific state revision. Playing a card and mandatory recruitment are separate commands; passing is unavailable during recruitment.
+
+Legacy version-one snapshots retain their original last-action coronation interpretation for compatibility. Current games prioritize exhausted hands as described above.
 
 Imported snapshots have a 128 KiB text cap and strict shape, follower-count, card, phase, result, and log validation. Validation rejects malformed data; it does not authenticate the remote host or prove the entire match history. Online clients send commands to the host, which checks the active seat and revision before applying them. Practice rivals use the same legal-command API.

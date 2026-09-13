@@ -248,10 +248,17 @@ function scoreEnd(state, type) {
       }
     }
     if (candidates.length > 1) {
+      // At coronation, a team that finished both hands outranks tied teams
+      // with cards left. Only use the unspent-hand fallback if none finished.
+      const completed = type === 'coronation'
+        ? candidates.filter(i => teams[i].every(player => player.hand.length === 0)) : [];
+      if (completed.length) candidates = completed;
       const timing = teams.map(team => Math.max(...team.map(p => p.lastActionAt)));
       const target = type === 'invasion' ? Math.max(...candidates.map(i => timing[i])) : Math.min(...candidates.map(i => timing[i]));
       candidates = candidates.filter(i => timing[i] === target);
-      reason = type === 'invasion' ? 'Most recent team action breaks the takeover tie' : 'Least recent team action breaks the succession tie';
+      reason = type === 'invasion' ? 'Most recent team action breaks the takeover tie'
+        : completed.length ? 'First team to play all its cards breaks the succession tie'
+          : 'Least recent team action breaks the succession tie';
     }
     if (candidates.length > 1) reason = 'Shared victory: both teams remain tied';
     const winners = state.players.filter((_, i) => candidates.includes(i % 2)).map(p => p.id);
@@ -281,11 +288,14 @@ function scoreEnd(state, type) {
       if (tied.length === 1) { reason = 'Most ' + factionName(faction) + ' support'; break; }
     }
     if (tied.length > 1) {
-      // The standard game's final tie rewards the player who stopped acting first.
-      // A player is never required to exhaust their hand.
+      // The published final tiebreak rewards the first exhausted hand. Keep
+      // v1 results stable; use the documented fallback only if nobody finished.
+      const completed = state.version === 1 ? [] : tied.filter(p => p.hand.length === 0);
+      if (completed.length) tied = completed;
       const earliest = Math.min(...tied.map(p => p.lastActionAt));
       tied = tied.filter(p => p.lastActionAt === earliest);
-      reason = 'Least recent action breaks the coronation tie';
+      reason = completed.length ? 'First to play all cards breaks the coronation tie'
+        : 'Least recent action breaks the coronation tie';
     }
   }
   state.result = { type, winners: tied.map(p => p.id), faction: type === 'coronation' ? ranking[0] : null, ranking, reason };
