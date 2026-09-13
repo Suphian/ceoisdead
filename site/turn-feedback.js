@@ -69,11 +69,13 @@ export function createTurnFeedback({ root = document.body, onDismiss } = {}) {
     frame = null;
     if (disposed || !pending || !modal.isConnected || doc.hidden) return;
     if ([...doc.querySelectorAll('dialog[open]')].some(dialog => dialog !== modal)) return;
-    const { key, name, seat, character, hotseat, firstTurn } = pending;
+    const { key, name, seat, character, hotseat, firstTurn, canPlayCard } = pending;
     find(modal, '.turn-feedback-eyebrow').textContent = hotseat ? 'PASS THE SCREEN' : 'THE NEXT MOVE IS YOURS';
     find(modal, '#turn-modal-player').textContent = `${name} · Seat ${seat + 1}`;
     find(modal, '#turn-modal-title').textContent = hotseat ? `${name}’s turn` : 'It’s your turn';
-    find(modal, '#turn-modal-detail').textContent = firstTurn
+    find(modal, '#turn-modal-detail').textContent = !canPlayCard
+      ? 'All eight cards are spent. Click Pass turn to continue.'
+      : firstTurn
       ? 'Play one card, then recruit one ally. Or pass and keep your cards for later.'
       : 'Choose your next card, then recruit one ally. Passing is a move, too.';
     const portrait = find(modal, '.turn-feedback-portrait img');
@@ -153,7 +155,7 @@ export function createTurnFeedback({ root = document.body, onDismiss } = {}) {
       if (!ready || (mine && game.phase === 'summon') || game.phase === 'ended') hideToast();
     } else if (announcedTurn !== key) {
       if (modal.open && modal.dataset.turn !== key) closeModal();
-      pending = { key, name: game.players[game.activePlayer].name, seat: game.activePlayer, character: characters[game.activePlayer], hotseat: mode === 'hotseat', firstTurn: game.revision === 0 };
+      pending = { key, name: game.players[game.activePlayer].name, seat: game.activePlayer, character: characters[game.activePlayer], hotseat: mode === 'hotseat', firstTurn: game.revision === 0, canPlayCard: game.players[game.activePlayer].hand.length > 0 };
       queuePresentation();
     }
     previous = { seed: game.seed, revision: game.revision, ready };

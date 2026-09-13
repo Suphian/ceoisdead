@@ -1,9 +1,10 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createGame, getLegalActions, applyAction } from '../site/game/engine.js';
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:3000';
-const required = process.env.REQUIRE_MULTIPLAYER === '1';
+const required = process.env.REQUIRE_MULTIPLAYER === '1' || process.argv.includes('--require-network');
 const coachKey = 'togaisdead.coach.v1';
 const report = { local: [], online: [], errors: [] };
 await mkdir('test-results', { recursive: true });
@@ -142,6 +143,24 @@ async function closeInvite(page) {
   if (await page.locator('#invite-modal').isVisible()) await page.locator('#invite-modal [data-close]').first().click();
 }
 
+function exhaustedHandSave() {
+  const seed = 'guidance-spent-hand', players = ['Suphi', 'Ed Ted'], history = [];
+  let game = createGame({ seed, players });
+  while (game.phase === 'summon' || game.players.some(player => player.hand.length > 0)) {
+    const action = getLegalActions(game).find(candidate => candidate.type === (game.phase === 'summon' ? 'summon' : 'play'));
+    assert.ok(action, 'Reach the exhausted hand using legal card effects and mandatory recruitment');
+    history.push(action.id);
+    game = applyAction(game, action.id);
+    assert.ok(history.length <= 32, 'Two players each play eight cards and recruit once per card');
+  }
+  assert.equal(game.activePlayer, 0);
+  assert.equal(game.phase, 'action');
+  assert.equal(game.round, 0);
+  assert.ok(game.players.every(player => player.hand.length === 0 && player.discard.length === 8));
+  assert.equal(game.log.some(entry => entry.type === 'pass'), false, 'The fixture does not resolve regions by passing');
+  return { seed, players, history, mode: 'solo', theme: 'medieval' };
+}
+
 try {
   const local = await client('Suphi');
   await ready(local.page);
@@ -188,6 +207,43 @@ try {
   await local.page.screenshot({ path: 'test-results/guidance-hotseat.png', fullPage: true });
   report.local.push('Hotseat names the active person through handoff and does not label a shared seat YOU');
   await local.context.close();
+
+  const exhausted = await client('Suphi');
+  const spentSave = exhaustedHandSave();
+  await exhausted.context.addInitScript(data => {
+    localStorage.removeItem('togaisdead.active-game');
+    localStorage.removeItem('togaisdead.games.v1');
+    localStorage.setItem('ceoisdead.session.v1', JSON.stringify(data));
+    localStorage.setItem('kingisdead.welcomed', '1');
+    localStorage.setItem('togaisdead.coach.v1', 'on');
+  }, spentSave);
+  await exhausted.page.goto(base, { waitUntil: 'domcontentloaded' });
+  await loaded(exhausted.page);
+  await exhausted.page.locator('#turn-modal').waitFor({ state: 'visible' });
+  const spentInstruction = await exhausted.page.locator('#turn-modal-detail').textContent();
+  assert.match(spentInstruction, /all eight cards are spent/i);
+  assert.match(spentInstruction, /click pass turn/i);
+  assert.doesNotMatch(spentInstruction, /choose your next card|play one card/i);
+  assert.equal(await revision(exhausted.page), spentSave.history.length);
+  await exhausted.page.screenshot({ path: 'test-results/guidance-exhausted-hand.png' });
+  await expectTurn(exhausted.page, 'Suphi');
+  await state(exhausted.page, 'action');
+  assert.equal(await exhausted.page.locator('#hand .action-card').count(), 8);
+  assert.equal(await exhausted.page.locator('#hand .action-card.is-used:disabled').count(), 8);
+  assert.equal(await exhausted.page.locator('#hand .action-card:not(:disabled)').count(), 0);
+  assert.equal(await exhausted.page.locator('#pass-button').isVisible(), true);
+  assert.equal(await exhausted.page.locator('#pass-button').isDisabled(), false);
+  assert.match(await exhausted.page.locator('#coach-detail').textContent(), /all eight cards are spent.*click pass turn/i);
+  await guided(exhausted.page, '#pass-button');
+  const spentMatch = await matchSnapshot(exhausted.page);
+  await exhausted.page.locator('#coach-toggle').click();
+  await coach(exhausted.page, false);
+  await exhausted.page.locator('#coach-toggle').click();
+  await coach(exhausted.page, true);
+  await noTurnModal(exhausted.page);
+  assert.deepEqual(await matchSnapshot(exhausted.page), spentMatch, 'Exhausted-hand coaching does not alter the reachable game');
+  report.local.push('After all sixteen cards are legally played without passes, the exhausted hand stays disabled, Pass stays enabled, and modal/coach correctly explain passing without changing the match');
+  await exhausted.context.close();
 
   const host = await client('Suphi');
   const guest = await client('Ed Ted');
