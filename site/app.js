@@ -1,39 +1,28 @@
 import { FACTIONS, REGIONS, CARDS, createGame, getLegalActions, applyAction, getStandings, chooseAIAction, deserializeGame } from './game/engine.js';
 import { GameRoom } from './room.js';
+import { COURT, THEMES, normalizeTheme, factionMeta, regionTitle, factionTitle, cardTitle, cardDescription, translate, emblem } from './presentation.js';
+import { createExperience } from './experience.js';
 
   const $ = (s) => document.querySelector(s);
   const escape = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const factionIds = FACTIONS.map(f => f.id);
-  const factionMeta = {
-    scots: {name:'Founders',short:'Founder',color:'#7cbbd0',symbol:'◆'},
-    welsh: {name:'Operators',short:'Operator',color:'#e1b871',symbol:'●'},
-    english: {name:'Investors',short:'Investor',color:'#d88278',symbol:'▲'}
-  };
-  const divisionNames = {moray:'Research',strathclyde:'Product',lancaster:'Operations',northumbria:'Engineering',gwynedd:'People',warwick:'Finance',essex:'Sales',devon:'Ventures'};
-  const cardNames = {'scottish-support':'Founder backing','welsh-support':'Operator backing','english-support':'Investor backing','assemble-1':'All-hands','assemble-2':'All-hands II',negotiate:'Backroom deal',manoeuvre:'Restructure',outmanoeuvre:'Power play'};
-  const cardDescriptions = {'scottish-support':'Place up to 2 Founders beside their territory.','welsh-support':'Place up to 2 Operators beside their territory.','english-support':'Place up to 2 Investors beside their territory.','assemble-1':'Place 1 ally of each available faction.','assemble-2':'A second chance to rally all three factions.',negotiate:'Swap two contests. Lock one in place.',manoeuvre:'Exchange 1 ally for 1 in another division.',outmanoeuvre:'Exchange 1 ally for 2 in a neighboring division.'};
-  const cardIcons = {'scottish-support':'◆','welsh-support':'●','english-support':'▲','assemble-1':'✦','assemble-2':'✦',negotiate:'⇄',manoeuvre:'↗',outmanoeuvre:'⚑'};
-  let theme = 'corporate';
-  let game = createGame({seed:newSeed(),players:['You','The Strategist']});
+  let theme = 'medieval';
+  let game = createGame({seed:newSeed(),players:['You',COURT[1].name]});
   let mode = 'solo', selectedCard = null, selectedRegion = null, selectedAction = null, room = null;
   let roomReady = false, roomLink = '', roomStatus = '', aiTimer = null, scene = null, view = '3d', history = [];
   let actionCache = {revision:-1,actions:[]};
   let sessionEpoch = 0;
   let localSeat = 0, roomLobby = null, joiningRoomId = null;
   let diceTray = null, diceLoading = false;
+  let experience = null;
   const storageKey = 'ceoisdead.session.v1';
 
   function newSeed() { return crypto.randomUUID().slice(0,8); }
-  function regionName(id) { return theme === 'corporate' ? divisionNames[id] : (REGIONS.find(r=>r.id===id)?.name ?? id); }
-  function factionName(id) { return theme === 'corporate' ? factionMeta[id]?.name ?? id : FACTIONS.find(f=>f.id===id)?.name ?? id; }
-  function cardName(id) { return theme === 'corporate' ? cardNames[id] : CARDS[id]?.name ?? id; }
-  function words(value) {
-    let text = String(value ?? '');
-    if(theme !== 'corporate') return text;
-    for(const [id,card] of Object.entries(CARDS)) text = text.replaceAll(card.name,cardNames[id]);
-    for(const region of REGIONS) text = text.replaceAll(region.name,divisionNames[region.id]);
-    return text.replaceAll('Scottish','Founder').replaceAll('Welsh','Operator').replaceAll('English','Investor').replaceAll('summons','recruits').replaceAll('Summon','Recruit').replaceAll('summon','recruit').replaceAll('follower','ally').replaceAll('coronation','succession').replaceAll('invasion','takeover');
-  }
+  function regionName(id) { return regionTitle(theme,id); }
+  function factionName(id) { return factionTitle(theme,id); }
+  function cardName(id) { return cardTitle(theme,id); }
+  function words(value) { return translate(theme,value); }
+  function portrait(i) { const p=COURT[i%4];return `<span class="portrait" style="--court:${p.color}"><img src="./assets/portraits/${p.image}.png" alt="" width="80" height="80"><span class="avatar" title="Seat ${i+1}">${i+1}</span></span>`; }
   function legal() {
     if(actionCache.revision !== game.revision || actionCache.state !== game) actionCache={revision:game.revision,state:game,actions:getLegalActions(game)};
     return actionCache.actions;
@@ -60,7 +49,7 @@ import { GameRoom } from './room.js';
       if(!['solo','hotseat'].includes(data.mode)||!Array.isArray(data.history)||data.history.length>256)return;
       let state=createGame({seed:String(data.seed).slice(0,80),players:data.players,teams:data.teams});
       for(const id of data.history) state=applyAction(state,id);
-      game=state;history=data.history;mode=data.mode;theme=data.theme==='medieval'?'medieval':'corporate';
+      game=state;history=data.history;mode=data.mode;theme=normalizeTheme(data.theme);
     } catch { /* Start a fresh table if an older save cannot be replayed. */ }
   }
 
@@ -68,10 +57,11 @@ import { GameRoom } from './room.js';
     $('#app').innerHTML=`
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="./" aria-label="CEO Is Dead home"><img src="./favicon.svg" width="42" height="42" alt=""><span class="brand-name"><strong id="brand-title">CEO IS DEAD.</strong><small>A GAME OF SUCCESSION</small></span></a>
-        <span class="header-note">POWER IS BORROWED. INFLUENCE IS EARNED.</span>
+        <button class="brand" data-command="menu" aria-label="Open the kingdom menu">${emblem('crown')}<span class="brand-name"><strong id="brand-title">THE KING IS DEAD</strong><small>A KINGDOM WITHOUT A CROWN</small></span></button>
+        <span class="header-note">An empty throne. An open invitation.</span>
         <nav class="header-actions" aria-label="Game controls">
-          <button class="button button-ghost" data-command="rules">How to play <span aria-hidden="true">↗</span></button>
+          <button class="button button-ghost" data-command="guide">${emblem('book')} How to play</button>
+          <button class="button button-ghost sound-button" data-command="settings" aria-label="Music, sound and atmosphere settings"><span aria-hidden="true">♫</span> <span>Sound &amp; scene</span></button>
           <button class="button button-ghost" data-command="invite" id="invite-button">Invite friends <span aria-hidden="true">＋</span></button>
           <button class="button button-primary" data-command="new-game" data-testid="new-game">New game</button>
         </nav>
@@ -86,23 +76,24 @@ import { GameRoom } from './room.js';
           </aside>
           <section class="board-stage" aria-label="Interactive game board">
             <div id="board-canvas"></div>
-            <div class="board-topline"><div class="stage-title"><span class="eyebrow">THE SUCCESSION BOARD</span><h1 id="stage-heading">The seat is empty.</h1><p class="stage-description" id="stage-description">Decide who inherits the company.</p></div></div>
-            <div class="camera-controls" aria-label="Board view"><button class="button button-small is-selected" data-command="view-3d" aria-pressed="true" title="Reset perspective view">3D</button><button class="button button-small" data-command="view-top" aria-pressed="false" title="Overhead view">Top</button><button class="button button-small" data-command="focus" title="Focus selected division or current contest">Focus</button></div>
-            <button class="dice-launcher" data-command="dice" aria-haspopup="dialog"><span aria-hidden="true">⚄</span><span>Dice tray<small>A little luck on the side</small></span></button>
+            <div class="board-topline"><div class="stage-title"><span class="eyebrow">THE COASTAL KINGDOM</span><h1 id="stage-heading">The crown awaits.</h1><p class="stage-description" id="stage-description">Three factions. Eight regions. One empty throne.</p></div></div>
+            <div class="camera-controls" aria-label="Board view"><button class="button button-small is-selected" data-command="view-3d" aria-pressed="true" title="Reset perspective view">3D</button><button class="button button-small" data-command="view-top" aria-pressed="false" title="Overhead view">Top</button><button class="button button-small" data-command="focus" title="Focus selected region or current contest">Focus</button><button class="button button-small" data-command="atmosphere" id="atmosphere-toggle" title="Change the time of day">☀</button></div>
+            <button class="dice-launcher" data-command="dice" aria-haspopup="dialog">${emblem('dice')}<span>Dice tray<small>A little luck on the side</small></span></button>
+            <div class="board-event" id="board-event" role="status" aria-live="polite" hidden></div>
             <div id="board-fallback" hidden></div>
             <div class="board-overlay" id="result-overlay" hidden></div>
-            <p class="board-help" id="board-help"><span aria-hidden="true">↔</span> Drag to orbit · Scroll to zoom · Select a division</p>
+            <p class="board-help" id="board-help"><span aria-hidden="true">↔</span> Drag to orbit · Scroll to zoom · Select a region</p>
           </section>
           <aside class="players-panel" aria-label="Players and influence">
             <div class="panel-heading"><span class="eyebrow">AT THE TABLE</span><span class="status-line"><span class="status-dot" id="connection-dot"></span><span id="connection-label">Local</span></span></div>
             <div id="players"></div>
             <section class="faction-summary" aria-label="Faction control"><div class="panel-heading"><span class="eyebrow">BALANCE OF POWER</span><span class="muted mono">HELD / RESERVE</span></div><div id="factions"></div></section>
-            <section class="activity-panel" aria-label="Recent moves"><div class="panel-heading"><span class="eyebrow">THE PAPER TRAIL</span></div><ol class="activity-list" id="activity"></ol></section>
+            <section class="activity-panel" aria-label="Recent moves"><div class="panel-heading"><span class="eyebrow">THE CHRONICLE</span></div><ol class="activity-list" id="activity"></ol></section>
           </aside>
         </div>
-        <nav class="region-rail" id="region-rail" aria-label="Select a division"></nav>
+        <nav class="region-rail" id="region-rail" aria-label="Select a region"></nav>
         <section class="action-dock" aria-label="Your action cards">
-          <div class="turn-bar"><div class="turn-copy" aria-live="polite"><span class="eyebrow" id="turn-label"></span><strong id="turn-heading"></strong><p id="turn-hint"></p></div><div class="turn-actions"><span class="muted mono" id="pass-count"></span><button class="button button-ghost" data-command="clear" id="clear-button" hidden>Cancel selection</button><button class="button button-primary" data-command="pass" id="pass-button" data-testid="pass">Pass turn <span aria-hidden="true">→</span></button></div></div>
+          <div class="turn-bar"><span id="turn-portrait" aria-hidden="true"></span><div class="turn-copy" aria-live="polite"><span class="eyebrow" id="turn-label"></span><strong id="turn-heading"></strong><p id="turn-hint"></p></div><div class="turn-actions"><span class="muted mono" id="pass-count"></span><button class="button button-ghost" data-command="clear" id="clear-button" hidden>Cancel selection</button><button class="button button-primary" data-command="pass" id="pass-button" data-testid="pass">Pass turn <span aria-hidden="true">→</span></button></div></div>
           <div class="hand" id="hand"></div>
         </section>
       </main>
@@ -119,7 +110,7 @@ import { GameRoom } from './room.js';
         <label class="field-label">Players at the table<select class="field-input" name="player-count" id="player-count"><option value="2">2 players · individual rivals</option><option value="3">3 players · individual rivals</option><option value="4">4 players · two teams of two</option></select></label>
         <p class="format-note" id="player-format-note"></p>
         <div class="form-grid"><label class="field-label">Your name · Seat 1<input class="field-input" name="player-one" maxlength="24" value="You" required autocomplete="off"></label><label class="field-label opponent-field" id="player-two-field">Seat 2<input class="field-input" name="player-two" maxlength="24" value="Friend" autocomplete="off"></label><label class="field-label opponent-field" id="player-three-field" hidden>Seat 3<input class="field-input" name="player-three" maxlength="24" value="Player 3" autocomplete="off"></label><label class="field-label opponent-field" id="player-four-field" hidden>Seat 4<input class="field-input" name="player-four" maxlength="24" value="Player 4" autocomplete="off"></label></div>
-        <label class="field-label theme-switch">Setting<select name="theme" class="field-input"><option value="corporate">CEO Is Dead — corporate succession</option><option value="medieval">The King Is Dead — medieval succession</option></select></label>
+        <label class="field-label theme-switch">Your world<select name="theme" class="field-input"><option value="medieval">The King Is Dead · coastal kingdom</option><option value="roman">The Emperor Is Dead · Roman succession</option></select></label>
         <p class="muted">Starting a new table replaces your current local game.</p>
       </div><footer class="modal-footer"><button class="button button-primary" type="submit" data-testid="start-game">Begin the succession <span aria-hidden="true">→</span></button></footer></form>
     </dialog>
@@ -141,46 +132,54 @@ import { GameRoom } from './room.js';
     const current=game.order[game.round], standings=getStandings(game), active=game.players[game.activePlayer], mine=isMyTurn();
     $('.app-shell').dataset.playerCount=String(game.players.length);
     document.documentElement.dataset.revision=String(game.revision);
-    $('#brand-title').textContent=theme==='corporate'?'CEO IS DEAD.':'THE KING IS DEAD.';
-    document.title=(theme==='corporate'?'CEO Is Dead':'The King Is Dead')+' — A game of succession';
+    document.documentElement.dataset.theme=theme;
+    $('#brand-title').textContent=THEMES[theme].title.toUpperCase();
+    $('.brand-name small').textContent=THEMES[theme].subtitle.toUpperCase();
+    document.title=THEMES[theme].title+' — A game of succession';
     $('#mode-badge').textContent=mode==='solo'?'PRACTICE':mode==='online'?'ONLINE':'LOCAL';
     $('#round-summary').innerHTML=`<div class="round-number">${String(Math.min(game.round+1,8)).padStart(2,'0')}<span>/ 08</span></div><p class="round-summary">${game.phase==='ended'?'The succession is settled.':`Next to decide<br><strong>${escape(regionName(current))}</strong>`}</p>`;
     $('#agenda').innerHTML=game.order.map((id,i)=>{const control=game.regions[id].control;return `<li class="agenda-item ${i===game.round?'is-current':''} ${i<game.round?'is-resolved':''}"><span class="agenda-number">${String(i+1).padStart(2,'0')}</span><span class="agenda-name">${escape(regionName(id))}${game.locked.includes(id)?'<span title="Order locked" aria-label="Order locked"> ·</span>':''}</span><span class="agenda-marker" style="--faction:${factionMeta[control]?.color??'#87949b'}">${control==='unstable'?'×':control?factionMeta[control].symbol:i===game.round?'←':'·'}</span></li>`;}).join('');
-    $('#players').innerHTML=game.players.map((p,i)=>`<section class="player-card ${i===game.activePlayer&&game.phase!=='ended'?'is-active':''}"><div class="player-heading"><span class="avatar" title="Seat ${i+1}">${i+1}</span><div><strong class="player-name">${escape(p.name)}</strong><span class="player-status">${escape(playerStatus(i))}</span></div><span class="card-count" title="Action cards remaining">${p.hand.length}<small>/8</small></span></div><div class="court-grid">${factionIds.map(f=>token(f,p.court[f])).join('')}</div></section>`).join('');
-    $('#factions').innerHTML=factionIds.map(f=>`<div class="faction-row"><span class="faction-dot" style="--faction:${factionMeta[f].color}">${factionMeta[f].symbol}</span><span class="stat-label">${escape(factionName(f))}</span><span class="stat-value">${standings.factions.find(r=>r.id===f).regions}<span> / ${game.supply[f]}</span></span></div>`).join('')+`<div class="faction-row"><span class="faction-dot" style="--faction:#87949b">×</span><span class="stat-label">${theme==='corporate'?'Deadlock':'Instability'}</span><span class="stat-value">${standings.instability}<span> / 3</span></span></div>`;
+    $('#players').innerHTML=game.players.map((p,i)=>`<section class="player-card ${i===game.activePlayer&&game.phase!=='ended'?'is-active':''}" style="--court:${COURT[i].color}"><div class="player-heading">${portrait(i)}<div><strong class="player-name">${escape(p.name)}</strong><span class="player-status">${escape(playerStatus(i))}</span></div><span class="card-count" title="Action cards remaining">${p.hand.length}<small>/8</small></span></div><div class="court-grid">${factionIds.map(f=>token(f,p.court[f])).join('')}</div></section>`).join('');
+    $('#factions').innerHTML=factionIds.map(f=>`<div class="faction-row"><span class="faction-dot" style="--faction:${factionMeta[f].color}">${factionMeta[f].symbol}</span><span class="stat-label">${escape(factionName(f))}</span><span class="stat-value">${standings.factions.find(r=>r.id===f).regions}<span> / ${game.supply[f]}</span></span></div>`).join('')+`<div class="faction-row"><span class="faction-dot" style="--faction:#87949b">×</span><span class="stat-label">Instability</span><span class="stat-value">${standings.instability}<span> / 3</span></span></div>`;
     $('#activity').innerHTML=game.log.slice(-4).reverse().map(item=>`<li class="activity-item">${escape(words(item.text))}</li>`).join('')||'<li class="activity-item muted">The old order is over. The next move is yours.</li>';
     $('#region-rail').innerHTML=game.order.map(id=>{const r=game.regions[id];return `<button class="region-tab ${selectedRegion===id?'is-selected':''} ${current===id?'is-current':''} ${r.control?'is-resolved':''}" data-region="${id}" aria-pressed="${selectedRegion===id}" aria-label="${escape(regionName(id))}, ${r.control?r.control==='unstable'?'deadlocked':escape(factionName(r.control))+' control':factionIds.map(f=>r.followers[f]+' '+factionName(f)).join(', ')}"><span>${escape(regionName(id))}</span><small>${r.control?(r.control==='unstable'?'× Deadlock':escape(factionName(r.control))):factionIds.map(f=>`<i style="color:${factionMeta[f].color}">${factionMeta[f].symbol} ${r.followers[f]}</i>`).join(' ')}</small></button>`;}).join('');
     $('#connection-label').textContent=mode==='online'?(roomReady?'Connected':roomLobby?.started?'Paused':roomLobby?`${roomLobby.seats.filter(s=>s.connected).length}/${game.players.length} joined`:'Connecting'):'Local';
     $('#connection-dot').style.background=mode==='online'&&!roomReady?'#dfbd81':'#86b6a0';
-    $('#stage-heading').textContent=game.phase==='ended'?'A new era begins.':game.round===0?'The seat is empty.':regionName(current)+' is in play.';
-    $('#stage-description').textContent=game.phase==='ended'?words(game.result.reason):theme==='corporate'?'Back the right people. Inherit the company.':'Back the right faction. Inherit the kingdom.';
+    $('#stage-heading').textContent=game.phase==='ended'?'A new reign begins.':game.round===0?THEMES[theme].heading:regionName(current)+' is in play.';
+    $('.stage-title .eyebrow').textContent='THE COASTAL '+THEMES[theme].place.toUpperCase();
+    $('#stage-description').textContent=game.phase==='ended'?words(game.result.reason):THEMES[theme].description;
+    $('#turn-portrait').innerHTML=portrait(game.activePlayer);
     $('#turn-label').textContent=game.phase==='ended'?'THE SUCCESSION IS SETTLED':mode==='online'&&!roomReady?'WAITING FOR THE TABLE':mine?`YOUR MOVE · SEAT ${game.activePlayer+1}`:`SEAT ${game.activePlayer+1} AT THE TABLE`;
     $('#turn-heading').textContent=game.phase==='ended'?winnerText():mode==='online'&&!roomReady?(roomLobby?.started?'The match is paused.':'Your table is waiting.'):game.phase==='summon'?(mine?'Recruit one ally.':active.name+' is recruiting.'):mine?'Play a card. Or let it pass.':active.name+' is considering a move.';
-    $('#turn-hint').textContent=game.phase==='ended'?words(game.result.reason):mode==='online'&&!roomReady?'Open Invite friends to see the lobby and connection status.':game.phase==='summon'?'Select any open division, then recruit one of its allies.':`Every card is a one-time decision. ${game.players.length} consecutive passes settle the next division.`;
+    $('#turn-hint').textContent=game.phase==='ended'?words(game.result.reason):mode==='online'&&!roomReady?'Open Invite friends to see the lobby and connection status.':game.phase==='summon'?'Select any open region, then recruit one of its allies.':`Every card is a one-time decision. ${game.players.length} consecutive passes settle the next region.`;
     $('#pass-count').textContent=game.phase==='action'?`${game.passes} / ${game.players.length} PASSES`:'';
     $('#pass-button').hidden=game.phase!=='action';$('#pass-button').disabled=!mine;
     $('#pass-button').innerHTML=game.passes===game.players.length-1?'Pass & settle <span aria-hidden="true">→</span>':'Pass turn <span aria-hidden="true">→</span>';
     $('#clear-button').hidden=!selectedCard&&!selectedRegion;
     const cardPlayer=mode==='online'?(game.players[localSeat]??game.players[0]):mode==='solo'?game.players[0]:active;
-    $('#hand').innerHTML=Object.keys(CARDS).map((id,i)=>`<button class="action-card ${selectedCard===id?'is-selected':''} ${!cardPlayer.hand.includes(id)?'is-used':''}" data-card="${id}" aria-pressed="${selectedCard===id}" ${!mine||game.phase!=='action'||!cardPlayer.hand.includes(id)?'disabled':''}><span class="card-top"><span class="card-icon" style="color:${CARDS[id].faction?factionMeta[CARDS[id].faction].color:'#dfbd81'}">${cardIcons[id]}</span><span class="card-number">${String(i+1).padStart(2,'0')}</span></span><strong class="card-title">${escape(cardName(id))}</strong><span class="card-description">${escape(theme==='corporate'?cardDescriptions[id]:CARDS[id].description)}</span><span class="card-bottom">${!cardPlayer.hand.includes(id)?'PLAYED':'ONE USE'}<span aria-hidden="true">${!cardPlayer.hand.includes(id)?'✓':'↗'}</span></span></button>`).join('');
+    $('#hand').innerHTML=Object.keys(CARDS).map((id,i)=>`<button class="action-card ${selectedCard===id?'is-selected':''} ${!cardPlayer.hand.includes(id)?'is-used':''}" data-card="${id}" aria-pressed="${selectedCard===id}" ${!mine||game.phase!=='action'||!cardPlayer.hand.includes(id)?'disabled':''}><span class="card-top"><span class="card-type">${CARDS[id].faction?'ALLEGIANCE':CARDS[id].kind==='exchange'?'STRATEGY':'INFLUENCE'}</span><span class="card-number">${String(i+1).padStart(2,'0')}</span></span><span class="card-art">${emblem(CARDS[id].faction??(id.startsWith('assemble')?'assemble':id))}</span><strong class="card-title">${escape(cardName(id))}</strong><span class="card-description">${escape(cardDescription(theme,id))}</span><span class="card-bottom">${!cardPlayer.hand.includes(id)?'PLAYED':'ONE USE'}<span aria-hidden="true">${!cardPlayer.hand.includes(id)?'✓':'↗'}</span></span></button>`).join('');
     $('#seed-label').textContent='TABLE '+game.seed.toUpperCase();
     $('#footer-mode').textContent=`${game.players.length} players · ${game.teams?'Two teams':'Individual rivals'} · ${mode==='online'?'Live table':mode==='solo'?'Practice':'Same screen'}`;
-    renderMovePanel();renderFallback();renderResult();updateScene();updateInvite();save();scheduleAI();
+    renderMovePanel();renderFallback();renderResult();updateScene();updateInvite();save();scheduleAI();experience?.refresh();
   }
 
   function renderMovePanel() {
+    const planning=isMyTurn()&&(game.phase==='summon'||Boolean(selectedCard));
+    const panel=$('.briefing-panel');
+    if(panel.classList.contains('is-planning')!==planning)panel.scrollTop=0;
+    panel.classList.toggle('is-planning',planning);
     const selected=selectedRegion?game.regions[selectedRegion]:null;
-    const regionInfo=selected?`<div class="selected-title"><span class="eyebrow">SELECTED DIVISION</span><h3>${escape(regionName(selectedRegion))}</h3></div><div class="court-grid">${factionIds.map(f=>token(f,selected.followers[f])).join('')}</div>${selected.control?`<p class="instruction">Settled: ${selected.control==='unstable'?'deadlock':escape(factionName(selected.control))+' control'}.</p>`:''}`:'';
+    const regionInfo=selected?`<div class="selected-title"><span class="eyebrow">SELECTED REGION</span><h3>${escape(regionName(selectedRegion))}</h3></div><div class="court-grid">${factionIds.map(f=>token(f,selected.followers[f])).join('')}</div>${selected.control?`<p class="instruction">Settled: ${selected.control==='unstable'?'deadlock':escape(factionName(selected.control))+' control'}.</p>`:''}`:'';
     if(game.phase==='summon'&&isMyTurn()) {
       const options=selectedRegion?legal().filter(a=>a.region===selectedRegion):[];
-      $('#move-panel').innerHTML=regionInfo+`<span class="eyebrow">RECRUIT AN ALLY</span><p class="instruction">${selectedRegion?'Choose one ally to add to your personal support.':'Select a division on the board or from the row below it.'}</p><div class="move-options">${options.map(a=>`<button class="button follower-choice" data-execute="${escape(a.id)}" style="--faction:${factionMeta[a.faction].color}">${factionMeta[a.faction].symbol} ${escape(factionName(a.faction))}<span>＋1</span></button>`).join('')}</div>`;
+      $('#move-panel').innerHTML=regionInfo+`<span class="eyebrow">RECRUIT AN ALLY</span><p class="instruction">${selectedRegion?'Choose one ally to add to your personal support.':'Select a region on the board or from the row below it.'}</p><div class="move-options">${options.map(a=>`<button class="button follower-choice" data-execute="${escape(a.id)}" style="--faction:${factionMeta[a.faction].color}">${factionMeta[a.faction].symbol} ${escape(factionName(a.faction))}<span>＋1</span></button>`).join('')}</div>`;
       return;
     }
     if(selectedCard&&isMyTurn()) {
       let options=legal().filter(a=>a.cardId===selectedCard);
       if(selectedRegion)options=options.filter(a=>a.regions.includes(selectedRegion)||!a.regions.length);
       if(!options.some(a=>a.id===selectedAction))selectedAction=options.length===1?options[0].id:null;
-      $('#move-panel').innerHTML=regionInfo+`<span class="eyebrow">PLAN YOUR MOVE</span><h3>${escape(cardName(selectedCard))}</h3><p class="instruction">${escape(theme==='corporate'?cardDescriptions[selectedCard]:CARDS[selectedCard].description)}</p><label class="field-label" for="action-choice">Choose the effect${selectedRegion?' · '+escape(regionName(selectedRegion)):''}<select id="action-choice" class="field-input" ${!options.length?'disabled':''}><option value="" ${!selectedAction?'selected':''}>${options.length?'Choose a move ('+options.length+')':'No moves in this division'}</option>${options.map(a=>`<option value="${escape(a.id)}" ${a.id===selectedAction?'selected':''}>${escape(words(a.label))}</option>`).join('')}</select></label><p class="instruction">Select a division to narrow the choices. After playing, recruit one ally from anywhere on the board.</p><button class="button button-primary" data-command="confirm-move" ${!selectedAction?'disabled':''}>Play this card <span aria-hidden="true">→</span></button>`;
+      $('#move-panel').innerHTML=`<span class="eyebrow">PLAN YOUR MOVE</span><h3>${escape(cardName(selectedCard))}</h3><p class="instruction">${escape(cardDescription(theme,selectedCard))}</p><label class="field-label" for="action-choice">Choose the effect${selectedRegion?' · '+escape(regionName(selectedRegion)):''}<select id="action-choice" class="field-input" ${!options.length?'disabled':''}><option value="" ${!selectedAction?'selected':''}>${options.length?'Choose a move ('+options.length+')':'No moves in this region'}</option>${options.map(a=>`<option value="${escape(a.id)}" ${a.id===selectedAction?'selected':''}>${escape(words(a.label))}</option>`).join('')}</select></label><p class="instruction">Select a region to narrow the choices. Play the card, then recruit one ally.</p><button class="button button-primary" data-command="confirm-move" ${!selectedAction?'disabled':''}>Play this card <span aria-hidden="true">→</span></button>`;
       return;
     }
     $('#move-panel').innerHTML=regionInfo+`<span class="eyebrow">THE QUIET ADVANTAGE</span><p class="instruction">${game.phase==='ended'?'Review the final board, or begin a new succession.':'You do not own a faction. Collect allies from the faction you think will prevail.'}</p><p class="instruction">Select an action card below to begin.</p>`;
@@ -194,10 +193,10 @@ import { GameRoom } from './room.js';
   }
   function renderResult() {
     $('#result-overlay').hidden=game.phase!=='ended';
-    if(game.phase==='ended')$('#result-overlay').innerHTML=`<div class="result-card"><span class="eyebrow">${game.result.type==='invasion'?'A HOSTILE TAKEOVER':'THE FINAL VOTE'}</span><h2>${escape(winnerText())}</h2><p>${escape(words(game.result.reason))}</p><button class="button button-primary" data-command="new-game">Play again <span aria-hidden="true">↗</span></button></div>`;
+    if(game.phase==='ended')$('#result-overlay').innerHTML=`<div class="result-card">${emblem('crown')}<span class="eyebrow">${game.result.type==='invasion'?'THE INVASION':THEMES[theme].ending}</span><h2>${escape(winnerText())}</h2><p>${escape(words(game.result.reason))}</p><button class="button button-primary" data-command="new-game">Begin another reign <span aria-hidden="true">↗</span></button></div>`;
   }
   function sceneState() {
-    return{courts:game.players.map(p=>factionIds.map(f=>p.court[f])),regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.order[game.round]===r.id};})};
+    return{theme,courts:game.players.map(p=>factionIds.map(f=>p.court[f])),regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.order[game.round]===r.id};})};
   }
   function updateScene() { if(scene)try{scene.update(sceneState(),selectedRegion);}catch{useFallback();} }
   function renderFallback() {
@@ -206,24 +205,24 @@ import { GameRoom } from './room.js';
   function useFallback() {
     document.documentElement.dataset.scene='fallback';
     scene?.dispose();scene=null;$('#board-canvas').hidden=true;$('#board-fallback').hidden=false;
-    $('#board-help').textContent='Accessible board view · Select a division to plan your move';
+    $('#board-help').textContent='Accessible board view · Select a region to plan your move';
     $('.camera-controls').hidden=true;
   }
   async function setupScene() {
-    try{const module=await import('./scene.js');scene=module.createBoardScene($('#board-canvas'),{onRegionClick:selectRegion});updateScene();document.documentElement.dataset.scene='ready';}
+    try{const module=await import('./scene.js');scene=module.createBoardScene($('#board-canvas'),{onRegionClick:selectRegion});updateScene();experience?.applyAtmosphere();document.documentElement.dataset.scene='ready';}
     catch(error){useFallback();document.documentElement.dataset.scene='fallback';console.warn('3D view unavailable; the accessible board is ready.',error.message);}
     $('#board-canvas').addEventListener('board-context-lost',useFallback);
   }
-  function selectRegion(id) { selectedRegion=id;selectedAction=null;render(); }
+  function selectRegion(id) { selectedRegion=id;selectedAction=null;experience?.audio.play('select');render(); }
   function advance(id, remote=false) {
     if(!remote&&!isMyTurn())return;
     if(mode==='online'&&!roomReady)return;
     if(mode==='online'&&!room.isHost&&!remote){room.sendAction(id,game.revision);return;}
     try{
-      game=applyAction(game,id);history.push(id);selectedCard=null;selectedAction=null;
+      const before=game;game=applyAction(game,id);history.push(id);selectedCard=null;selectedAction=null;
       if(game.phase!=='summon')selectedRegion=null;
       if(mode==='online'&&room.isHost)room.broadcast(game);
-      render();
+      render();experience?.transition(before,game);
     }catch(error){toast(error.message);}
   }
   function scheduleAI() {
@@ -233,20 +232,25 @@ import { GameRoom } from './room.js';
     clearTimeout(aiTimer);scheduleAI.revision=revision;scheduleAI.epoch=epoch;
     aiTimer=setTimeout(()=>{aiTimer=null;
       if(epoch!==sessionEpoch||revision!==game.revision||mode!=='solo'||game.activePlayer===0)return;
-      try{const move=chooseAIAction(game);if(move){game=applyAction(game,move);history.push(move.id);selectedCard=null;selectedAction=null;render();}}catch(error){toast('The Strategist could not move: '+error.message);}
+      try{const move=chooseAIAction(game);if(move){const before=game;game=applyAction(game,move);history.push(move.id);selectedCard=null;selectedAction=null;render();experience?.transition(before,game);}}catch(error){toast('The court could not move: '+error.message);}
     },game.phase==='summon'?500:850);
   }
   function onClick(event) {
     const button=event.target.closest('button');if(!button||button.disabled)return;
+    experience?.audio.unlock();
     if(button.hasAttribute('data-close')){button.closest('dialog')?.close();return;}
     if(button.dataset.region){selectRegion(button.dataset.region);return;}
-    if(button.dataset.card){selectedCard=selectedCard===button.dataset.card?null:button.dataset.card;selectedAction=null;render();return;}
+    if(button.dataset.card){selectedCard=selectedCard===button.dataset.card?null:button.dataset.card;selectedAction=null;experience?.audio.play('select');render();return;}
     if(button.dataset.execute){advance(button.dataset.execute);return;}
     switch(button.dataset.command) {
       case'new-game':$('#new-game-form').elements.theme.value=theme;$('#player-count').value=String(game.players.length);updateNewGameForm();$('#new-game-modal').showModal();break;
+      case'menu':experience?.openMenu();break;
+      case'guide':experience?.openGuide();break;
+      case'settings':experience?.openSettings();break;
+      case'atmosphere':experience?.cycleAtmosphere();break;
       case'rules':showRules();break;
       case'dice':openDice();break;
-      case'roll-dice':diceTray?.roll();break;
+      case'roll-dice':experience?.audio.play('dice');diceTray?.roll();break;
       case'focus':scene?.focusRegion(selectedRegion||game.order[game.round]);break;
       case'invite':updateInvite();$('#invite-modal').showModal();break;
       case'clear':selectedCard=null;selectedRegion=null;selectedAction=null;render();break;
@@ -266,7 +270,7 @@ import { GameRoom } from './room.js';
     for(const [i,word] of ['two','three','four'].entries()){
       const field=$('#player-'+word+'-field');field.hidden=solo||i+2>count;field.querySelector('input').disabled=field.hidden;
     }
-    $('#player-format-note').textContent=count===4?'Teams: seats 1 + 3 versus seats 2 + 4. Each player keeps their own cards and allies.':`${count} individual rivals. ${count} consecutive passes settle a division.`;
+    $('#player-format-note').textContent=count===4?'Teams: seats 1 + 3 versus seats 2 + 4. Each player keeps their own cards and allies.':`${count} individual rivals. ${count} consecutive passes settle a region.`;
   }
   async function openDice() {
     const dialog=$('#dice-modal');if(!dialog.open)dialog.showModal();
@@ -286,7 +290,7 @@ import { GameRoom } from './room.js';
   function onNewGame(event) {
     event.preventDefault();
     const form=new FormData(event.currentTarget),nextMode=form.get('mode');
-    const count=Number(form.get('player-count')),bots=['The Strategist','The Tactician','The Director'];
+    const count=Number(form.get('player-count')),bots=COURT.slice(1).map(p=>p.name);
     const names=['one','two','three','four'].slice(0,count).map((word,i)=>i>0&&nextMode==='solo'?bots[i-1]:String(form.get('player-'+word)||`Player ${i+1}`));
     resetGame(nextMode,names,String(form.get('theme')));
     try{localStorage.setItem('ceoisdead.name',names[0]);}catch{}
@@ -296,7 +300,7 @@ import { GameRoom } from './room.js';
   function resetGame(nextMode,names,nextTheme=theme) {
     sessionEpoch++;clearTimeout(aiTimer);room?.close();room=null;roomReady=false;roomLink='';roomStatus='';
     localSeat=0;roomLobby=null;joiningRoomId=null;
-    mode=nextMode;theme=nextTheme==='medieval'?'medieval':'corporate';game=createGame({seed:newSeed(),players:names.map(n=>n.trim().slice(0,24)||'Player')});history=[];
+    mode=nextMode;theme=normalizeTheme(nextTheme);game=createGame({seed:newSeed(),players:names.map(n=>n.trim().slice(0,24)||'Player')});history=[];
     selectedCard=null;selectedRegion=null;selectedAction=null;
     const url=new URL(location.href);url.searchParams.delete('room');window.history.replaceState({},'',url);
     render();
@@ -304,12 +308,12 @@ import { GameRoom } from './room.js';
   function showRules() {
     $('#rules-body').innerHTML=`
     <ol class="rules-list">
-      <li class="rules-step"><strong>Back a faction. Keep your options open.</strong><p>You are a contender, not a faction. ${escape(factionIds.map(f=>factionName(f)).join(', '))} compete to control eight divisions. The allies beside your name are your personal support.</p></li>
-      <li class="rules-step"><strong>Play one card, then recruit one ally.</strong><p>Choose a card and its effect. Then remove one ally from any open division and add it to your support. Every player has eight one-use cards for the entire game.</p></li>
-      <li class="rules-step"><strong>Passing can be a power move.</strong><p>${game.players.length} consecutive passes settle the next division on the agenda. The faction with the most allies there takes control. A tie creates deadlock. Settled divisions cannot be changed.</p></li>
-      <li class="rules-step"><strong>Win the succession.</strong><p>After all eight divisions settle, rank factions by divisions held, then most recent victory. The contender with the most support in the leading faction wins; ties compare the second faction, then less recent card play. ${game.teams?'In this four-player game, the winning contender brings their teammate to victory. Team courts remain separate for this ending.':''}</p></li>
-      <li class="rules-step"><strong>Watch for a hostile takeover.</strong><p>Three deadlocked divisions end the game immediately. ${game.teams?'Combine the allies held by seats 1 + 3 and by seats 2 + 4 before counting complete faction sets. The team with more sets wins; ties favor the latest card played by either teammate.':'The contender with the most complete sets of three different allies wins. A tie favors the most recent card play.'}</p></li>
-    </ol>${game.teams?'<p class="muted">Seats 1 + 3 form Team 1; seats 2 + 4 form Team 2. Take turns in seat order. For the standard team experience, avoid tactical discussion and showing teammates your hand. A final succession tie compares each team’s latest card play and favors the earlier team.</p>':''}<p class="muted">The client keeps complete game state; it does not enforce hand secrecy. “Backroom deal” changes the agenda, not the allies. “Power play” requires neighboring divisions. You must use each card's fullest legal effect; the move picker enforces this.</p><a href="https://github.com/Suphian/ceoisdead/blob/main/RULES.md" target="_blank" rel="noopener">Read the full rules &amp; card reference ↗</a>`;
+      <li class="rules-step"><strong>Back a faction. Keep your options open.</strong><p>You are a contender, not a faction. ${escape(factionIds.map(f=>factionName(f)).join(', '))} compete to control eight regions. The allies beside your name are your personal support.</p></li>
+      <li class="rules-step"><strong>Play one card, then recruit one ally.</strong><p>Choose a card and its effect. Then remove one ally from any open region and add it to your support. Every player has eight one-use cards for the entire game.</p></li>
+      <li class="rules-step"><strong>Passing can be a power move.</strong><p>${game.players.length} consecutive passes settle the next region on the agenda. The faction with the most allies there takes control. A tie creates deadlock. Settled regions cannot be changed.</p></li>
+      <li class="rules-step"><strong>Win the succession.</strong><p>After all eight regions settle, rank factions by regions held, then most recent victory. The contender with the most support in the leading faction wins; ties compare the second faction, then less recent card play. ${game.teams?'In this four-player game, the winning contender brings their teammate to victory. Team courts remain separate for this ending.':''}</p></li>
+      <li class="rules-step"><strong>Watch for an invasion.</strong><p>Three deadlocked regions end the game immediately. ${game.teams?'Combine the allies held by seats 1 + 3 and by seats 2 + 4 before counting complete faction sets. The team with more sets wins; ties favor the latest card played by either teammate.':'The contender with the most complete sets of three different allies wins. A tie favors the most recent card play.'}</p></li>
+    </ol>${game.teams?'<p class="muted">Seats 1 + 3 form Team 1; seats 2 + 4 form Team 2. Take turns in seat order. For the standard team experience, avoid tactical discussion and showing teammates your hand. A final succession tie compares each team’s latest card play and favors the earlier team.</p>':''}<p class="muted">The client keeps complete game state; it does not enforce hand secrecy. “Negotiate” changes the agenda, not the allies. “Outmanoeuvre” requires neighboring regions. You must use each card's fullest legal effect; the move picker enforces this.</p><a href="https://github.com/Suphian/ceoisdead/blob/main/RULES.md" target="_blank" rel="noopener">Read the full rules &amp; card reference ↗</a>`;
     $('#rules-modal').showModal();
   }
   function playerStatus(i) {
@@ -347,7 +351,9 @@ import { GameRoom } from './room.js';
         try{
           const validated=deserializeGame(JSON.stringify(state));
           if(validated.revision<game.revision)return;
+          const before=game,notify=roomReady&&validated.revision===game.revision+1;
           game=validated;localSeat=room?.seat??localSeat;mode='online';selectedCard=null;selectedRegion=null;selectedAction=null;render();
+          if(notify)experience?.transition(before,game);
         }catch{
           toast('Received an invalid table update. Start a fresh table.');roomReady=false;room?.close();render();
         }
@@ -398,7 +404,7 @@ import { GameRoom } from './room.js';
     $('#invite-link').value=roomLink;$('#copy-link').disabled=!roomLink;
     $('#create-room').hidden=online&&joined;
     const seats=roomLobby?.seats??[];
-    $('#lobby-seats').innerHTML=seats.map(s=>'<li class="lobby-seat '+(s.connected?'is-connected':'')+'"><span class="avatar">'+(s.seat+1)+'</span><div><strong>'+escape(s.name)+'</strong><small>'+(game.teams?'Team '+(s.seat%2+1)+' · ':'')+(s.seat===localSeat?'Your seat':s.seat===0?'Host':'Guest')+'</small></div><span class="seat-state">'+(s.connected?'Joined':started?'Rejoining…':'Open seat')+'</span></li>').join('');
+    $('#lobby-seats').innerHTML=seats.map(s=>'<li class="lobby-seat '+(s.connected?'is-connected':'')+'">'+portrait(s.seat)+'<div><strong>'+escape(s.name)+'</strong><small>'+(game.teams?'Team '+(s.seat%2+1)+' · ':'')+(s.seat===localSeat?'Your seat':s.seat===0?'Host':'Guest')+'</small></div><span class="seat-state">'+(s.connected?'Joined':started?'Rejoining…':'Open seat')+'</span></li>').join('');
     $('#lobby-format').textContent=seats.length?(game.teams?'Team 1: seats 1 + 3 · Team 2: seats 2 + 4':game.players.length+' individual rivals'):'';
     $('#start-table').hidden=!host||started;
     $('#start-table').disabled=!seats.length||!seats.every(s=>s.connected);
@@ -416,9 +422,12 @@ import { GameRoom } from './room.js';
   }
 
   const incomingRoom=new URLSearchParams(location.search).get('room');
-  if(incomingRoom)theme=new URLSearchParams(location.search).get('theme')==='medieval'?'medieval':'corporate';
+  if(incomingRoom)theme=normalizeTheme(new URLSearchParams(location.search).get('theme'));
   if(!incomingRoom)restore();
-  mount();render();setupScene();
+  mount();
+  experience=createExperience({getContext:()=>({game,mode,theme,roomReady,localSeat}),onLighting:value=>scene?.setLighting(value),onNewGame:nextMode=>{const form=$('#new-game-form');form.elements.mode.value=nextMode;form.elements.theme.value=theme;$('#player-count').value=String(game.players.length);updateNewGameForm();$('#new-game-modal').showModal();},onFullRules:showRules});
+  render();setupScene();
   if(incomingRoom&&/^[a-zA-Z0-9_-]{1,100}$/.test(incomingRoom))joinRoom(incomingRoom);
-  window.addEventListener('beforeunload',()=>{clearTimeout(aiTimer);room?.close();scene?.dispose();diceTray?.dispose();});
+  else experience.showWelcomeOnce();
+  window.addEventListener('beforeunload',()=>{clearTimeout(aiTimer);room?.close();scene?.dispose();diceTray?.dispose();experience?.dispose();});
   document.documentElement.dataset.game='ready';

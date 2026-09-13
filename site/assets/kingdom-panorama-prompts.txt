@@ -1,0 +1,18 @@
+Mode: built-in ImageGen edit
+Original social banner remains intact.
+
+FIRST EDIT PROMPT
+Use case: precise-object-edit.
+Edit target: the supplied original kingdom social banner. Create a TEXT-FREE decorative kingdom panorama for a short wide website header displayed at approximately 850 x 220 pixels (about 3.86:1).
+Required change: remove ALL lettering, title text, subtitle, player count, domain, typographic strokes and flourishes, logo symbols and emblems from the entire image. Remove the large fleur-de-lis and divider decorations in the former title region. Remove fleur-de-lis symbols from castle banners, leaving plain burgundy and antique-gold cloth.
+Fill the former title region on the left with a natural continuous extension of the same painted jade coastal water, little sage islands, and a small terracotta-roofed cream-stone seaside town. The complete image should be uninterrupted landscape artwork with no blank parchment title area.
+Preserve: the identity and architectural character of the magnificent cream-stone castle, terracotta village, jade sea, olive and sage island palette, warm sun, exquisite hand-painted historical miniature/storybook treatment, original gentle antique-board-game atmosphere.
+Composition adjustment: compose as a very wide, shallow panorama, keep the main castle and village cluster centered vertically with breathing room above roofs and below shorelines so that an 850 x 220 header crop remains attractive. Carry coastal scenery naturally toward both horizontal edges. No buildings awkwardly cut off by the top edge. A harmonious succession of small islands, town, and castle, with water between them.
+Constraints: no text, lettering, numbers, logos, symbols, glyphs, borders, frames, UI or watermark anywhere. No modern elements. Deliver one cohesive original text-free landscape image.
+
+FINAL CROP SAFETY EDIT PROMPT
+Edit this text-free coastal kingdom painting with one targeted composition adjustment: make it safe for a very short wide header crop.
+Output a panoramic landscape image with WIDTH nearly FOUR TIMES HEIGHT (approximately 3.86:1). Recompose the castle-and-town island substantially smaller within the scene so that the entire tallest castle tower, its plain red flag, and the island's shore fit inside the CENTRAL 50 PERCENT OF THE IMAGE HEIGHT. Keep all the important roofs and shorelines within that central horizontal strip. Add generous unobtrusive sky and distant mountain water scenery above, and jade water foreground below. Spread the scene broadly horizontally. Place the main cream-stone castle island to the right of center and an original little terracotta town and olive islands to the left. View slightly from farther away.
+Preserve the existing original castle design, warm painted miniature realism, sage-green islands, terracotta rooftops, cream-stone architecture, and jade sea. Preserve the original image's quality and pleasant warm sunlight.
+Absolutely no lettering, logos, typography, numbers, glyphs, decorative symbols, frames, UI, or watermarks. Plain banners only. A single continuous landscape artwork.
+This will be displayed as an 850 by 220 pixel header, so the entire important castle silhouette MUST fit even in a shallow crop.

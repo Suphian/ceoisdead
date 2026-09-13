@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createLandmarks } from './landmarks.js';
 
   const COLORS=[0x68bed0,0xe7b34d,0xd57968];
   const LAYOUT=[[-.75,-4.0,1.04],[ -.85,-2.1,1.15],[-1.6,-.1,1.16],[1.0,-.55,1.20],[-3.25,1.70,1.08],[-.75,1.95,1.21],[1.83,2.05,1.10],[-1.73,4.01,1.08]];
-  const MODELS=['campus','atrium','factory','campus','atrium','tower-twin','tower','tower'];
   const TAU=Math.PI*2;
   const mix=(a,b,t)=>a+(b-a)*t;
   function polygon(radius,index=0) {
@@ -29,10 +28,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.14;
     renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     const canvas=renderer.domElement;canvas.className='board-webgl';canvas.style.cssText='width:100%;height:100%;display:block;touch-action:none';
-    canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Living three-dimensional succession board. Drag to orbit and scroll to zoom. Keyboard-accessible division buttons are below.');
+    canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Living three-dimensional succession board. Drag to orbit and scroll to zoom. Keyboard-accessible region buttons are below.');
     container.append(canvas);
     const world=new THREE.Scene();
     const camera=new THREE.OrthographicCamera(-8,8,8,-8,.1,100);
+    camera.zoom=container.clientWidth<700?1.04:1.30;
     const defaultPosition=new THREE.Vector3(9.2,14.5,16.5),defaultTarget=new THREE.Vector3(-.55,.75,.15);
     camera.position.copy(defaultPosition);
     const controls=new OrbitControls(camera,canvas);controls.target.copy(defaultTarget);controls.enableDamping=true;controls.dampingFactor=.09;
@@ -46,12 +46,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     sun.shadow.bias=-.00018;sun.shadow.normalBias=.025;sun.shadow.radius=3;world.add(sun);
     const rim=new THREE.DirectionalLight(0x9cdce8,1.4);rim.position.set(6,5,-7);world.add(rim);
     const mats={
-      dark:new THREE.MeshStandardMaterial({color:0x122027,roughness:.68,metalness:.2}),
+      dark:new THREE.MeshStandardMaterial({color:0x4d4938,roughness:.68,metalness:.1}),
       brass:new THREE.MeshStandardMaterial({color:0xb79355,roughness:.29,metalness:.76}),
-      cliff:new THREE.MeshStandardMaterial({color:0x657477,roughness:.94}),
-      cliffLight:new THREE.MeshStandardMaterial({color:0x9daca6,roughness:.92}),
-      sand:new THREE.MeshStandardMaterial({color:0xd7c7a4,roughness:.94}),
-      grass:new THREE.MeshStandardMaterial({color:0x6d9169,roughness:.95}),
+      cliff:new THREE.MeshStandardMaterial({color:0xb6ac89,roughness:.94}),
+      cliffLight:new THREE.MeshStandardMaterial({color:0xd5cbaa,roughness:.92}),
+      sand:new THREE.MeshStandardMaterial({color:0xe8d7b0,roughness:.94}),
+      grass:new THREE.MeshStandardMaterial({color:0x8c9d6e,roughness:.95}),
       path:new THREE.MeshStandardMaterial({color:0xb6afa0,roughness:.98}),
       bark:new THREE.MeshStandardMaterial({color:0x654b39,roughness:.94}),
       leaves:new THREE.MeshStandardMaterial({color:0x3f755d,roughness:.89}),
@@ -66,7 +66,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     const shared={
       box:new THREE.BoxGeometry(1,1,1),
       trunk:new THREE.CylinderGeometry(.035,.05,.34,5),
-      pine:new THREE.ConeGeometry(.25,.64,6),
+      pine:new THREE.IcosahedronGeometry(.28,1),
       rock:new THREE.DodecahedronGeometry(1,0),
       disc:new THREE.CylinderGeometry(.135,.15,.065,16),
       gem:new THREE.OctahedronGeometry(.135,0),
@@ -80,7 +80,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     mesh(slab(roundedRect(11.5,13.15,.48),.34,.08),mats.dark,board,0,-.79,0);
     mesh(slab(roundedRect(11.39,13.04,.44),.055,.02),mats.brass,board,0,-.425,0);
     mesh(slab(roundedRect(11.30,12.95,.42),.20,.035),mats.dark,board,0,-.36,0);
-    const waterMaterial=new THREE.MeshPhysicalMaterial({color:0x146075,roughness:.24,metalness:.30,clearcoat:.8,clearcoatRoughness:.25});
+    const waterMaterial=new THREE.MeshPhysicalMaterial({color:0x4b928a,roughness:.40,metalness:.08,clearcoat:.6,clearcoatRoughness:.25});
     let waterShader=null;
     waterMaterial.onBeforeCompile=shader=>{
       shader.uniforms.uTime={value:0};waterShader=shader;
@@ -94,7 +94,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     const waterGeometry=new THREE.PlaneGeometry(11.15,12.8,90,100);waterGeometry.rotateX(-Math.PI/2);
     const water=mesh(waterGeometry,waterMaterial,board,0,-.09,0);water.castShadow=false;
 
-    const nodes=new Map(),pickables=[],flights=[],ripples=[],models=new Map(),lamps=[],boats=[];
+    const nodes=new Map(),pickables=[],flights=[],ripples=[],lamps=[],boats=[];
+    const landmarks=createLandmarks();let visualTheme='medieval',lighting='morning';
     const forestTrunks=new THREE.InstancedMesh(shared.trunk,mats.bark,96),forestCrowns=new THREE.InstancedMesh(shared.pine,mats.leaves,96),forestTops=new THREE.InstancedMesh(shared.pine,mats.leavesLight,96);
     for(const m of[forestTrunks,forestCrowns,forestTops]){m.castShadow=true;m.receiveShadow=true;world.add(m);}
     const rockField=new THREE.InstancedMesh(shared.rock,mats.stone,80);rockField.castShadow=true;rockField.receiveShadow=true;world.add(rockField);
@@ -104,12 +105,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     const labelTextures=new Set();
     function label(text,subtitle) {
       const c=document.createElement('canvas');c.width=512;c.height=136;const g=c.getContext('2d');
-      g.fillStyle='#132f38e8';g.beginPath();g.roundRect(25,12,462,112,18);g.fill();
-      g.strokeStyle='#b6995c99';g.lineWidth=2;g.stroke();
-      g.fillStyle='#f1e7cf';g.textAlign='center';g.textBaseline='middle';g.font='600 41px Georgia';g.fillText(String(text).slice(0,24),256,subtitle?48:66,440);
-      g.fillStyle='#dfbd81';g.font='600 18px Arial';g.fillText(String(subtitle).toUpperCase(),256,94,440);
+      g.fillStyle='#f5e8cb';g.beginPath();g.roundRect(25,12,462,112,10);g.fill();
+      g.strokeStyle='#987843bb';g.lineWidth=2;g.stroke();
+      g.fillStyle='#443c2c';g.textAlign='center';g.textBaseline='middle';g.font='600 41px Georgia';g.fillText(String(text).slice(0,24),256,subtitle?48:66,440);
+      g.fillStyle='#856739';g.font='600 18px Arial';g.fillText(String(subtitle).toUpperCase(),256,94,440);
       const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;labelTextures.add(t);
-      const m=new THREE.SpriteMaterial({map:t,depthTest:false,depthWrite:false,transparent:true});
+      const m=new THREE.SpriteMaterial({map:t,depthTest:false,depthWrite:false,transparent:true,toneMapped:false});
       const s=new THREE.Sprite(m);s.scale.set(2.06,.547,1);s.renderOrder=10;return s;
     }
     function tree(x,z,scale=1){
@@ -130,23 +131,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       return group;
     }
     function pawnPosition(slot){return new THREE.Vector3(-.40+(slot%4)*.28,.335+Math.floor(slot/8)*.37,.35+Math.floor(slot%8/4)*.27);}
-    const loader=new GLTFLoader();
-    const loadModels=Promise.all([...new Set(MODELS)].map(async name=>{
-      try{
-        const gltf=await loader.loadAsync(new URL('./assets/models/'+name+'.glb',import.meta.url).href);
-        if(disposed)return;
-        gltf.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.roughness=.70;o.material.metalness=.06;o.material.envMapIntensity=.35;}}});
-        models.set(name,gltf.scene);
-        for(const node of nodes.values())if(MODELS[node.index]===name)putLandmark(node);
-      }catch(e){container.dataset.assetWarning='Some landmarks could not load';console.warn('Landmark unavailable:',name,e.message);}
-    })).then(()=>{if(!disposed)container.dataset.assets=models.size===new Set(MODELS).size?'ready':'partial';});
     function putLandmark(node){
-      const source=models.get(MODELS[node.index]);if(!source)return;
       if(node.building)node.group.remove(node.building);
-      const building=source.clone(true),bounds=new THREE.Box3().setFromObject(building),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
-      const targetWidth=node.index===5?.56:.68;const scale=targetWidth/Math.max(size.x,size.z);
-      building.position.set(-center.x*scale-.13,.335-bounds.min.y*scale,-center.z*scale-.32);
-      building.scale.setScalar(scale);building.rotation.y=node.index%2?.4:-.2;node.group.add(building);node.building=building;
+      const building=landmarks.make(node.index,visualTheme);
+      building.position.set(-.13,.335,-.29);building.scale.setScalar(1.13);building.rotation.y=node.index%2?.25:-.15;node.group.add(building);node.building=building;
       dirty=true;
     }
     function buildRegion(region,index) {
@@ -204,6 +192,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     function clearLabel(node){if(node.label){node.group.remove(node.label);node.label.material.map.dispose();labelTextures.delete(node.label.material.map);node.label.material.dispose();node.label=null;}}
     function update(state,selectedRegion=null){
       if(disposed)return;selected=typeof selectedRegion==='object'?selectedRegion?.id:selectedRegion;
+      const nextTheme=state.theme==='roman'?'roman':'medieval';
+      if(nextTheme!==visualTheme){visualTheme=nextTheme;for(const node of nodes.values())putLandmark(node);}
       benches.forEach((bench,i)=>bench.visible=i<(state.courts?.length??2));
       const regions=state.regions??[];lastRegions=regions;
       const removed=[];
@@ -218,7 +208,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         const signature=[region.name,region.controller,region.unstable,region.resolved,region.current].join('|');
         if(signature!==node.signature){
           node.signature=signature;clearLabel(node);
-          node.label=label(region.name,region.unstable?'DEADLOCK':region.resolved?'SETTLED':region.current?'IN CONTEST':'');node.label.position.set(0,.52,.94);node.group.add(node.label);
+          node.label=label(region.name,region.unstable?'UNSTABLE':region.resolved?'SETTLED':region.current?'IN CONTEST':'');node.label.position.set(0,.35,1.14);node.group.add(node.label);
           if(region.resolved&&!node.banner){
             const banner=new THREE.Group();banner.position.set(.51,.34,-.36);node.group.add(banner);node.banner=banner;
             box(banner,mats.brass,0,.32,0,.023,.65,.023);
@@ -254,7 +244,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       }
       previousCourts=(state.courts??[]).map(c=>c.slice());
       for(const m of[forestTrunks,forestCrowns,forestTops]){m.count=treeCount;m.instanceMatrix.needsUpdate=true;}rockField.count=rockCount;rockField.instanceMatrix.needsUpdate=true;
-      firstUpdate=false;dirty=true;
+      firstUpdate=false;dirty=true;container.dataset.assets='ready';container.dataset.architecture=visualTheme;
     }
     const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();let start=null;
     function pick(event){const r=canvas.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);return raycaster.intersectObjects(pickables,false)[0]?.object.userData.regionId??null;}
@@ -272,14 +262,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     }
     function setView(next){
       view=next==='top'?'top':'3d';controls.enableRotate=view!=='top';controls.minPolarAngle=view==='top'?0:.08;
-      tweenCamera(view==='top'?new THREE.Vector3(-.55,24,.151):defaultPosition,defaultTarget,1);
+      tweenCamera(view==='top'?new THREE.Vector3(-.55,24,.151):defaultPosition,defaultTarget,view==='top'?1:container.clientWidth<700?1.04:1.30);
     }
     function focusRegion(id){
       const node=nodes.get(id);if(!node)return;
       const target=new THREE.Vector3(node.group.position.x,.2,node.group.position.z);
       const offset=camera.position.clone().sub(controls.target);tweenCamera(target.clone().add(offset),target,1.65);
     }
-    function setLighting(value){night=value==='night';dirty=true;}
+    function setLighting(value){lighting=['morning','sunset','night'].includes(value)?value:'morning';night=lighting==='night';container.dataset.lighting=lighting;dirty=true;}
     let nightBlend=0;
     function resize(){
       const width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),aspect=width/height;
@@ -288,7 +278,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     }
     const observer=new ResizeObserver(resize);observer.observe(container);resize();
     function animate(now){
-      if(disposed)return;frame=requestAnimationFrame(animate);if(document.hidden||document.querySelector('dialog[open]'))return;
+      if(disposed)return;frame=requestAnimationFrame(animate);if(document.hidden)return;
+      if(!dirty&&document.querySelector('#dice-modal[open], #new-game-modal[open], #invite-modal[open], #guide-modal[open]'))return;
       if(reduceMotion&&!dirty&&!flights.length&&!cameraTween)return;
       if(!dirty&&now-lastFrame<1000/(container.clientWidth<700?30:45))return;lastFrame=now;
       const t=clock.getElapsedTime();
@@ -296,9 +287,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       if(!reduceMotion){boats.forEach((b,i)=>{b.group.position.y=-.07+Math.sin(t*.8+i)*.012;b.group.rotation.z=Math.sin(t*.7+i)*.025;});dust.rotation.y=t*.012;}
       nightBlend=mix(nightBlend,night?1:0,reduceMotion?1:.045);
       ambient.intensity=mix(1.4,.70,nightBlend);sun.intensity=mix(3.8,.36,nightBlend);rim.intensity=mix(1.4,2.1,nightBlend);
-      sun.color.setRGB(mix(1,.48,nightBlend),mix(.73,.67,nightBlend),mix(.53,1,nightBlend));
+      sun.color.setRGB(mix(1,.48,nightBlend),mix(lighting==='sunset'?.54:.83,.67,nightBlend),mix(lighting==='sunset'?.28:.67,1,nightBlend));
       renderer.toneMappingExposure=mix(1.14,.98,nightBlend);world.environmentIntensity=mix(.25,.13,nightBlend);lamps.forEach(l=>l.visible=nightBlend>.3);
       for(const[id,node]of nodes){
+        if(node.building)landmarks.animate(node.building,t,reduceMotion);
         node.group.position.y=0;
         node.target.visible=id===selected||node.region.current;node.target.material.opacity=id===selected?.60:.20+(reduceMotion?0:Math.sin(t*1.5)*.06);
         node.outline.material.opacity=id===selected?1:id===hovered?.75:node.region.current?.48:0;
@@ -324,7 +316,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       if(disposed)return;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();Object.entries(listeners).forEach(([t,f])=>canvas.removeEventListener(t,f));
       const geometries=new Set(Object.values(shared)),materials=new Set(Object.values(mats).flat()),textures=new Set(labelTextures);
       const collect=root=>root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:o.material?[o.material]:[])){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});
-      collect(world);models.forEach(collect);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();environmentTarget.dispose();renderer.dispose();canvas.remove();
+      collect(world);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());landmarks.dispose();sun.shadow.dispose();environmentTarget.dispose();renderer.dispose();canvas.remove();
     }
     return{update,setView,focusRegion,setLighting,dispose};
   }

@@ -1,0 +1,13 @@
+Mode: built-in ImageGen
+
+Use case: ads-marketing.
+Asset type: original final wide social/banner illustration for a browser historical succession strategy game named The King Is Dead. Landscape approximately 1200:630 / 1.905:1 aspect ratio.
+Scene: a beautifully crafted coastal medieval miniature kingdom, cream-stone castles rising above terracotta-roofed villages, gently layered sage-green islands with little olive trees, sheltered jade water and softly reflective teal shallows. Elegant ivory roads and small geometric land parcels give the subtle impression of a sophisticated tabletop strategy board. No people are necessary.
+Style: exquisite hand-painted miniature diorama with tactile gouache and oil brush texture, luminous warm natural sunlight, painterly storybook realism, parchment warmth and restrained antique-gold accents. Original art, refined and warm, polished strategy board-game identity. Cohesive illustration plus designed typography in one image.
+Composition: wide social-card, ample quiet warm parchment / antique-cream breathing room for title and supporting text, with the miniature coastal kingdom integrated as the hero artwork. Clear headline hierarchy and generous safe margins, no typography overlapping complex buildings or trees. Board game feels richly crafted and inviting, with beautiful architectural details without visual clutter. Face-free environment artwork.
+Text (verbatim, exactly):
+"THE KING IS DEAD"
+"A kingdom without a crown."
+"2–4 players · Play at suph.app"
+Typography: very large beautiful and unmistakably legible classical serif headline, dark warm umber with subtle antique-gold accenting. Supporting line smaller elegant dark readable type. Smallest line clearly readable in warm dark brown. Exact spelling, proper en dash in 2–4, one centered middle dot. Title has no period.
+Constraints: original artwork and character-free scene, no imitation or copying of any existing game or brand. No existing logo, screenshot, UI, browser chrome, watermark, extra text, modern offices, corporate motifs, navy tech aesthetic, weapons, corpses, gore, rendered circular avatar frames.
