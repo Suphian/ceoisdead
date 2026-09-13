@@ -39,6 +39,10 @@ function cloneState(state) {
   return JSON.parse(json);
 }
 
+function validCharacter(value) {
+  return Number.isInteger(value) && value >= 0 && value < 4;
+}
+
 /**
  * Host-star rooms for 2–4 seats. Lobby occupancy is separate from playable state.
  * Guest identity comes only from the host's connection record. Private resume
@@ -57,15 +61,17 @@ export class GameRoom {
     this.started = false; this.seat = null; this.lobby = null;
   }
 
-  async host(initialState) {
+  async host(initialState, { character = 0 } = {}) {
     const state = cloneState(initialState);
     if (!Array.isArray(state.players) || state.players.length < 2 || state.players.length > 4
       || state.revision !== 0) throw new Error('Start a fresh table with two to four players.');
+    if (!validCharacter(character)) throw new Error('Choose a character from 0 to 3.');
     this.close();
     const epoch = this._epoch;
     this.isHost = true; this.seat = 0; this._state = state;
     this._seats = state.players.map((p, seat) => ({
-      seat, name: p.name, defaultName: p.name, connected: seat === 0, token: null, record: null,
+      seat, name: p.name, defaultName: seat === 0 ? p.name : 'Player ' + (seat + 1),
+      character: seat === 0 ? character : seat % 4, connected: seat === 0, token: null, record: null,
     }));
     this.onStatus('Creating your table…', 'connecting');
     try {
@@ -82,13 +88,15 @@ export class GameRoom {
     }
   }
 
-  async join(roomId, { name = '', token = '' } = {}) {
+  async join(roomId, { name = '', token = '', character } = {}) {
     if (typeof roomId !== 'string' || !/^ceoisdead-[a-zA-Z0-9-]{20,80}$/.test(roomId)) {
       throw new Error('This invitation link is not a valid room.');
     }
+    if (character !== undefined && !validCharacter(character)) throw new Error('Choose a character from 0 to 3.');
     this.close();
     const epoch = this._epoch;
     this.roomId = roomId; this._hello = { name: String(name).trim().slice(0, 24), token: String(token).slice(0, 100) };
+    if (character !== undefined) this._hello.character = character;
     this.onStatus('Connecting to the host…', 'connecting');
     try {
       const peer = await this._openPeer(epoch);
@@ -191,12 +199,19 @@ export class GameRoom {
     }
     if (packet.type === 'hello' && this.isHost && !record.joined) {
       if (typeof packet.name !== 'string' || packet.name.length > 24 || typeof packet.token !== 'string' || packet.token.length > 100) return;
+      if (Object.hasOwn(packet, 'character') && !validCharacter(packet.character)) {
+        this._reject(record, 'Choose a character from 0 to 3.'); return;
+      }
       let seat = packet.token ? this._seats.find(s => s.token === packet.token) : null;
+      const resuming = Boolean(seat);
       if (seat?.connected) { this._reject(record, 'Your seat is already connected in another tab.'); return; }
       if (!seat && this.started) { this._reject(record, 'This match has started. Only its original players can rejoin their reserved seats.'); return; }
       seat ??= this._seats.find(s => s.seat > 0 && !s.connected);
       if (!seat) { this._reject(record, 'This table is full. Ask the host to create a larger table.'); return; }
-      seat.token ??= newId();
+      if (!resuming) {
+        seat.token = newId(); seat.name = seat.defaultName;
+        seat.character = packet.character ?? seat.seat % 4;
+      }
       if (!this.started && packet.name.trim()) seat.name = packet.name.trim();
       seat.connected = true; seat.record = record;
       record.seat = seat.seat; record.joined = true; clearTimeout(record.timer);
@@ -237,7 +252,8 @@ export class GameRoom {
     }
     if (packet.type === 'lobby' && !this.isHost) {
       const lobby = this._validateLobby(packet.lobby);
-      if (!lobby || lobby.capacity !== this.lobby?.capacity || (this.started && !lobby.started)) {
+      if (!lobby || lobby.capacity !== this.lobby?.capacity || (this.started && (!lobby.started
+        || lobby.seats.some((s, i) => s.character !== this.lobby.seats[i].character)))) {
         this._fatal('The host sent invalid lobby information.'); return;
       }
       this._applyLobby(lobby); return;
@@ -245,6 +261,9 @@ export class GameRoom {
     if (packet.type === 'name' && this.isHost && !this.started
       && typeof packet.name === 'string' && packet.name.trim().length > 0 && packet.name.length <= 24) {
       this._seats[record.seat].name = packet.name.trim(); this._syncNames(); this._publishLobby(); return;
+    }
+    if (packet.type === 'character' && this.isHost && !this.started && validCharacter(packet.character)) {
+      this._seats[record.seat].character = packet.character; this._publishLobby(); return;
     }
     if (packet.type === 'action' && this.isHost && this.ready
       && record.seat === this._state.activePlayer
@@ -260,13 +279,15 @@ export class GameRoom {
   }
   _publicLobby() {
     return { capacity: this._seats.length, started: this.started,
-      seats: this._seats.map(({ seat, name, connected }) => ({ seat, name, connected })) };
+      seats: this._seats.map(({ seat, name, connected, character }) => ({ seat, name, connected, character })) };
   }
   _validateLobby(value) {
     if (!value || typeof value !== 'object' || !Number.isInteger(value.capacity) || value.capacity < 2 || value.capacity > 4
       || typeof value.started !== 'boolean' || !Array.isArray(value.seats) || value.seats.length !== value.capacity) return null;
-    if (value.seats.some((s, i) => !s || s.seat !== i || typeof s.name !== 'string' || !s.name.trim() || s.name.length > 40 || typeof s.connected !== 'boolean')) return null;
-    return { capacity: value.capacity, started: value.started, seats: value.seats.map(({ seat, name, connected }) => ({ seat, name, connected })) };
+    if (value.seats.some((s, i) => !s || s.seat !== i || typeof s.name !== 'string' || !s.name.trim() || s.name.length > 40
+      || typeof s.connected !== 'boolean' || (Object.hasOwn(s, 'character') && !validCharacter(s.character)))) return null;
+    return { capacity: value.capacity, started: value.started,
+      seats: value.seats.map(({ seat, name, connected, character = seat % 4 }) => ({ seat, name, connected, character })) };
   }
   _applyLobby(lobby) {
     const epoch = this._epoch, generation = this._lobbyGeneration;
@@ -309,6 +330,14 @@ export class GameRoom {
     const record = [...this._connections.values()][0];
     return record ? this._send(record, { type: 'name', name: name.trim() }) : false;
   }
+  chooseCharacter(character) {
+    if (!this.connected || this.started || !validCharacter(character)) return false;
+    if (this.isHost) {
+      this._seats[0].character = character; this._publishLobby(); return true;
+    }
+    const record = [...this._connections.values()][0];
+    return record ? this._send(record, { type: 'character', character }) : false;
+  }
   broadcast(state) {
     if (!this.isHost) return false;
     const snapshot = cloneState(state);
@@ -331,7 +360,8 @@ export class GameRoom {
       if (record.joined && this._seats[record.seat]?.record === record) {
         const seat = this._seats[record.seat];
         seat.connected = false; seat.record = null;
-        if (!this.started) { seat.token = null; seat.name = seat.defaultName; this._syncNames(); }
+        // Keep cosmetic identity for a token-based refresh. An unclaimed lobby
+        // seat remains available, and a replacement receives a fresh token.
       }
       record.connection.close();
       if (record.joined) this._publishLobby();

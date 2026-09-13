@@ -192,6 +192,129 @@ test('names can change in the lobby, then freeze when the host starts', async t 
   p.host.start(); await flush(); assert.equal(p.guests[0].rename('New name'), false);
 });
 
+test('character choices are public cosmetics, allow duplicates, and propagate before start', async t => {
+  const p = table(3); t.after(() => p.close());
+  const invitation = await p.host.host(p.state, { character: 3 });
+  await p.guests[0].join(invitation.roomId, { name: 'Grace', character: 3 });
+  await p.guests[1].join(invitation.roomId);
+  await flush();
+  assert.deepEqual(p.host.lobby.seats.map(s => s.character), [3, 3, 2]);
+  assert.equal(p.host.lobby.seats[2].name, 'Player 3');
+  assert.equal(p.host.chooseCharacter(1), true);
+  assert.equal(p.guests[0].chooseCharacter(1), true);
+  await flush();
+  for (const room of [p.host, ...p.guests]) assert.deepEqual(room.lobby.seats.map(s => s.character), [1, 1, 2]);
+  assert.equal(p.host._state.revision, 0);
+  assert.deepEqual(p.host._state.regions, p.state.regions);
+  assert.ok(p.received.flat().every(state => state.players.every(player => !Object.hasOwn(player, 'character'))));
+  assert.ok(p.host.lobby.seats.every(seat => !Object.hasOwn(seat, 'token')));
+});
+
+test('invalid characters and forged seat IDs cannot change another player or a frozen choice', async t => {
+  const p = table(3); t.after(() => p.close());
+  const invitation = await p.host.host(p.state);
+  await Promise.all(p.guests.map(g => g.join(invitation.roomId)));
+  for (const character of [-1, 4, 1.5, '1', null, {}, []]) {
+    assert.equal(p.host.chooseCharacter(character), false);
+    assert.equal(p.guests[0].chooseCharacter(character), false);
+    wire(p.guests[0], { type: 'character', character, seat: 0 });
+  }
+  await flush();
+  assert.deepEqual(p.host.lobby.seats.map(s => s.character), [0, 1, 2]);
+  wire(p.guests[0], { type: 'character', character: 3, seat: 2 });
+  wire(p.guests[1], { type: 'character', character: 0, roomId: 'another-room' });
+  wire(p.guests[0], { type: 'lobby', lobby: { capacity: 3, started: false, seats: [] } });
+  await flush();
+  assert.deepEqual(p.host.lobby.seats.map(s => s.character), [0, 3, 2]);
+  p.host.start(); await flush();
+  assert.equal(p.host.chooseCharacter(2), false);
+  assert.equal(p.guests[0].chooseCharacter(2), false);
+  wire(p.guests[0], { type: 'character', character: 2 });
+  await flush();
+  assert.deepEqual(p.host.lobby.seats.map(s => s.character), [0, 3, 2]);
+});
+
+test('invalid host and join preferences reject without closing an existing room', async t => {
+  const p = table(); t.after(() => p.close());
+  const invitation = await p.host.host(p.state);
+  await p.guests[0].join(invitation.roomId);
+  for (const character of [-1, 4, 1.5, '1', null]) {
+    await assert.rejects(p.host.host(p.state, { character }), /character/);
+    await assert.rejects(p.guests[0].join(invitation.roomId, { character }), /character/);
+  }
+  assert.equal(p.host.connected, true); assert.equal(p.guests[0].connected, true);
+});
+
+test('token-based lobby refresh preserves character while a replacement gets a fresh identity', async t => {
+  const p = table(), returning = new GameRoom(p.common), replacement = new GameRoom(p.common);
+  t.after(() => { returning.close(); replacement.close(); p.close(); });
+  const invitation = await p.host.host(p.state);
+  const first = await p.guests[0].join(invitation.roomId, { name: 'Original', character: 3 });
+  p.guests[0].close(); await flush();
+  const resumed = await returning.join(invitation.roomId, { token: first.token, character: 0 });
+  assert.equal(resumed.seat, first.seat); assert.equal(resumed.token, first.token);
+  assert.equal(returning.lobby.seats[first.seat].character, 3);
+  assert.equal(returning.lobby.seats[first.seat].name, 'Original');
+  returning.close(); await flush();
+  const fresh = await replacement.join(invitation.roomId);
+  assert.equal(fresh.seat, first.seat); assert.notEqual(fresh.token, first.token);
+  assert.equal(p.host.lobby.seats[first.seat].character, 1);
+  assert.equal(p.host.lobby.seats[first.seat].name, 'Player 2');
+  p.host.start(); await flush(); replacement.close(); await flush();
+  await assert.rejects(returning.join(invitation.roomId, { token: first.token }), /original players/);
+});
+
+test('a started seat keeps its character when the original guest rejoins', async t => {
+  const p = table(), returning = new GameRoom(p.common); t.after(() => { returning.close(); p.close(); });
+  const invitation = await p.host.host(p.state, { character: 2 });
+  const member = await p.guests[0].join(invitation.roomId, { character: 3 });
+  p.host.start(); await flush(); p.guests[0].close(); await flush();
+  await returning.join(invitation.roomId, { token: member.token, character: 0 }); await flush();
+  assert.deepEqual(returning.lobby.seats.map(s => s.character), [2, 3]);
+  assert.equal(returning.ready, true);
+  assert.equal(returning.chooseCharacter(1), false);
+});
+
+test('legacy lobby packets without characters receive seat defaults', async t => {
+  const p = table(4); t.after(() => p.close());
+  const publicLobby = p.host._publicLobby.bind(p.host);
+  p.host._publicLobby = () => {
+    const lobby = publicLobby();
+    lobby.seats.forEach(seat => delete seat.character);
+    return lobby;
+  };
+  const invitation = await p.host.host(p.state);
+  await Promise.all(p.guests.map(g => g.join(invitation.roomId))); await flush();
+  for (const guest of p.guests) assert.deepEqual(guest.lobby.seats.map(s => s.character), [0, 1, 2, 3]);
+  p.host.start(); await flush();
+  assert.ok(p.guests.every(guest => guest.ready));
+});
+
+test('an invalid character in the hello packet is rejected before claiming a seat', async t => {
+  const p = table(); t.after(() => p.close());
+  const invitation = await p.host.host(p.state), guest = p.guests[0];
+  const send = guest._send.bind(guest);
+  guest._send = (record, packet) => send(record, packet.type === 'hello' ? { ...packet, character: '2' } : packet);
+  await assert.rejects(guest.join(invitation.roomId), /character/);
+  assert.equal(p.host.lobby.seats[1].connected, false);
+  assert.equal(p.host.lobby.seats[1].character, 1);
+});
+
+test('lobby validation rejects malformed characters and changes to started choices', async t => {
+  const p = table(); t.after(() => p.close());
+  const invitation = await p.host.host(p.state);
+  await p.guests[0].join(invitation.roomId); p.host.start(); await flush();
+  for (const character of [-1, 4, 1.5, '1', null, {}, []]) {
+    const lobby = structuredClone(p.host.lobby); lobby.seats[0].character = character;
+    assert.equal(p.guests[0]._validateLobby(lobby), null);
+  }
+  const lobby = structuredClone(p.host.lobby); lobby.seats[0].character = 3;
+  const record = [...p.host._connections.values()][0];
+  p.host._send(record, { type: 'lobby', lobby }); await flush();
+  assert.equal(p.guests[0].connected, false);
+  assert.equal(p.host.ready, false);
+});
+
 test('host close pauses guests and refuses new actions', async t => {
   const p = table(3); t.after(() => p.close());
   const invitation = await p.host.host(p.state); await Promise.all(p.guests.map(g => g.join(invitation.roomId)));
