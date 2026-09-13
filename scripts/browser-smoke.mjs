@@ -11,6 +11,7 @@ async function ready(page) {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.documentElement.dataset.game === 'ready');
+  if (await page.locator('#welcome-modal').isVisible()) await page.locator('#continue-table').click();
   await page.waitForFunction(() => ['ready', 'fallback'].includes(document.documentElement.dataset.scene), null, { timeout: 45000 });
   if (await page.locator('#board-canvas').isVisible()) {
     await page.waitForFunction(() => document.querySelector('#board-canvas').dataset.assets === 'ready', null, { timeout: 45000 });
@@ -57,7 +58,8 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('ceoisdead.session.v1')), initialSave, 'Dice do not change the match');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   report.checks.push('Models load, camera views work, physics rolls settle and the dice tray leaves the match unchanged');
-  await page.locator('[data-command="rules"]').click();
+  await page.locator('[data-command="guide"]').click();
+  await page.locator('[data-experience="full-rules"]').click();
   assert.equal(await page.locator('#rules-modal').isVisible(), true);
   await page.locator('#rules-modal [data-close]').first().click();
   await page.locator('[data-testid="new-game"]').click();

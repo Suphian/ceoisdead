@@ -59,6 +59,7 @@ jobs:
           done
           curl --fail --silent "$BASE_URL/" > /dev/null
           node scripts/browser-smoke.mjs
+          node scripts/browser-experience.mjs
           node scripts/browser-multiplayer.mjs
       - name: Save browser results
         if: always()

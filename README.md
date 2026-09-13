@@ -1,10 +1,14 @@
-# CEO is Dead
+# The King Is Dead
 
-An original 3D browser interface for a 2–4-player succession game, with corporate and medieval settings, solo practice, same-screen play, and online invitations. Two and three players compete individually; four players form two teams (seats 1 + 3 versus seats 2 + 4). Read [RULES.md](RULES.md) for the implemented rules and reference. The game lives in `site/`; its rules, interface, and Three.js scene are separate modules so friends can contribute independently.
+A desktop-first 3D browser succession game for 2–4 players, with solo practice, same-screen play, and online invitations. The default medieval kingdom has an optional Roman presentation, **The Emperor Is Dead**. Two and three players compete individually; four players form teams: seats 1 + 3 versus seats 2 + 4. The repository and hosting project remain named `ceoisdead`.
 
-**Play: https://suph.app** (also https://ceoisdead.vercel.app). Friends can open it without Vercel or ChatGPT accounts. Choose **New game → Invite friends**, select **2, 3, or 4 players**, and create the table. Send the same generated invitation link to everyone. Each guest gets a seat and can update their name in the lobby. Once everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table. WhatsApp and other link readers can use the static Open Graph artwork and metadata.
+This independent prototype implements the standard mechanics described in [RULES.md](RULES.md), with original interface, architecture, illustrations, and procedural audio. The coastal board includes miniature landmarks, villages, forests, docks, boats, moving water, faction pieces, and move animations. Morning, golden-hour, and moonlight settings change the atmosphere locally.
 
-The coastal board includes miniature landmarks, forests, docks, boats, moving water, sculptural faction pieces, move animations, and camera focus. The optional **Dice tray** uses real rigid-body physics; it is a local toy, does not affect the rules, and its rolls are not synchronized with other players. Reduced-motion mode simulates the roll immediately and shows the resting result.
+**Play: [suph.app](https://suph.app)**, also [ceoisdead.vercel.app](https://ceoisdead.vercel.app). Choose **Invite your friends** in the welcome menu, or **New game → Invite friends**, select 2, 3, or 4 players, and create the table. Send the same invitation link to everyone. Guests need no Vercel or ChatGPT account. Each guest takes a seat and can change their lobby name; when everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table.
+
+The five-chapter **Field guide** explains play and includes a pass demonstration that leaves the match unchanged. **Read aloud** uses the browser/device speech service when available. The four illustrated contenders are decorative identities with no special powers. Music is an original 72-second Web Audio arrangement; it defaults off, starts only after interaction, and pauses in hidden tabs. Sound, volume, and atmosphere preferences stay on the current device.
+
+The optional **Dice tray** uses rigid-body physics. It is a local toy: rolls do not affect the rules or synchronize with other players. Reduced-motion mode shows the resting result immediately. The interface adapts to smaller screens and provides a DOM board when WebGL is unavailable.
 
 ## Run locally
 
@@ -16,15 +20,15 @@ cd ceoisdead
 npm run dev
 ```
 
-Open **http://127.0.0.1:3000**. No npm installation or build step is needed for the game. The browser loads the pinned Three.js version declared in `site/index.html`, so initial loading requires an internet connection. Refresh the page after editing files.
+Open **http://127.0.0.1:3000**. The static game needs no npm installation or build step. Initial loading needs an internet connection for pinned browser libraries and web fonts. Refresh after editing files.
 
-`npm test` runs the game rules with Node's built-in test runner. The server uses Node built-ins and serves only `site/`.
+`npm test` runs the dependency-free engine, room transport, and audio lifecycle tests. The development server uses Node built-ins and serves only `site/`.
 
 ## Work with a friend
 
-1. The repository owner adds your GitHub account under **Settings → Collaborators → Add people**.
-2. Clone the repository on your own computer and open it in Codex or your editor. Each person signs into their own ChatGPT/Codex account.
-3. Pull the latest `main`, then create a branch for one small feature:
+1. The repository owner adds the friend's GitHub account under **Settings → Collaborators → Add people**.
+2. Each person clones the repository and opens it in Codex or an editor using their own account.
+3. Start one focused feature from updated `main`:
 
    ```sh
    git switch main
@@ -32,8 +36,8 @@ Open **http://127.0.0.1:3000**. No npm installation or build step is needed for 
    git switch -c feature/my-change
    ```
 
-4. Make the change, run `npm test`, and play it in the browser.
-5. Commit and push your branch, then open a pull request on GitHub:
+4. Make the change, run `npm test`, and check it in the browser.
+5. Stage the paths you changed, commit a working milestone, and push the branch:
 
    ```sh
    git add site
@@ -41,45 +45,46 @@ Open **http://127.0.0.1:3000**. No npm installation or build step is needed for 
    git push -u origin feature/my-change
    ```
 
-   Stage other changed paths explicitly when your work includes tests, scripts, or documentation.
+   Stage tests, scripts, or documentation explicitly when they are part of the change.
+6. Open a pull request, review each other's work, and merge when the relevant checks pass. Start the next feature from updated `main`.
 
-6. Review each other's changes and merge when the checks pass. Start the next feature from updated `main`.
+Agree on module ownership before editing together. Scene props, guide improvements, illustrations, audio, and transport work can proceed independently. A useful Codex prompt is:
 
-Good independent tasks include new scene props, card illustrations, interface improvements, and rule changes with tests. Agree on ownership before both editing the same module.
+> Read README.md, AGENTS.md, and RULES.md. Implement [one feature] on my current branch. Keep rules separate from presentation, add a meaningful regression test if behavior changes, run the relevant checks, and commit working milestones.
 
-A useful Codex prompt:
-
-> Read README.md and the game rules. Implement [one feature] on my current branch. Keep the rules separate from rendering, add a regression test when behavior changes, run the checks, and summarize the result.
-
-Sharing a ChatGPT conversation is useful for explaining an idea; the GitHub branch and pull request carry the code.
+Sharing a ChatGPT conversation provides context; GitHub branches and pull requests carry the code.
 
 ## Edit and play together live
 
-For a joint session, both install VS Code Live Share. One person opens the project, runs `npm run dev`, starts a Live Share session, and shares its invitation link. In Live Share, choose **Share server**, enter **3000**, and let the friend open it under **Shared Servers**. Both can edit the shared files and refresh their browsers to play the current version while the host stays online.
+Both collaborators can use VS Code Live Share. The host opens the project, runs `npm run dev`, starts a Live Share session, and shares its invitation. Choose **Share server**, enter **3000**, and let the friend open it under **Shared Servers**. Both can edit the shared files and refresh their browsers while the host stays online.
 
-For local-network testing, set `HOST=0.0.0.0` and optionally `PORT` before starting the server; the default binds only to your own computer. Live Share works with the default host.
+For local-network testing, set `HOST=0.0.0.0` and optionally `PORT` before starting the server. The default binds to your own computer; Live Share works with that default.
 
-## Share a playable preview
+## Deployment and online rooms
 
-The repository is deployed to Vercel as project **ceoisdead** in team **suph**. `vercel.json` publishes **site** with no install or build command. The production domain is **suph.app**. Git integration supplies production updates from `main` and preview deployments for branches; use a branch preview to review a friend's changes before merging. The existing Netlify configuration remains available as an alternative static host.
+The Vercel project is **ceoisdead** in team **suph**, with production domain **suph.app**. `vercel.json` publishes `site/` without install or build commands. Git integration supplies production updates from `main` and branch previews for reviewing changes. The Netlify configuration remains as an alternative static-host setup.
 
-Online rooms use PeerJS/WebRTC: up to three guests connect directly to the host, who validates the assigned seat, state revision, and legal move before broadcasting updates. Seats are frozen when the host starts. Any disconnect pauses the entire match. A guest can refresh the same tab or click **Rejoin your seat** while the host remains online. A private resume token in that guest tab's session storage reclaims its original seat; it is never placed in the shared link or public lobby. Closing the host tab loses the room, and a guest who loses their tab's token cannot reclaim a started seat. These are casual rooms without account authentication, server persistence, or guaranteed connectivity across every network. Local play still works when direct connections are unavailable.
+Rooms use PeerJS/WebRTC. Up to three guests connect to the host, which validates seat ownership, state revision, and legal moves before broadcasting updates. Seats freeze when the match starts; any disconnect pauses everyone. A guest can refresh the same tab or choose **Rejoin your seat** while the host remains online. A private token in that tab's session storage reclaims its seat and is never included in the shared link or public lobby.
+
+Closing the host tab loses the room. Losing a guest tab's token prevents reclaiming a started seat. These casual rooms have no account authentication or server persistence, and some networks block direct connections. Same-screen and practice modes remain available. Existing local corporate-themed saves restore with medieval presentation while retaining players, moves, and turn order.
 
 ## Project map
 
-- `site/index.html` — page and pinned browser dependency imports
-- `site/app.js` — interface and player interactions
-- `site/styles.css` — responsive presentation
-- `site/scene.js` — stable scene entry point
-- `site/world.js` — Three.js coastal board and visual effects
-- `site/dice.js` — independently loaded Three.js / cannon-es physics tray
-- `site/assets/` — self-contained CC0 GLB models and original licenses
-- `site/og.png` — original generated social sharing artwork
-- `site/room.js` — host-star PeerJS transport, lobby, assigned seats and private reconnect tokens
-- `site/game/engine.js` — game state and rules
-- `test/` — dependency-free rules and room transport tests
-- `scripts/serve.mjs` — local static server
-- `scripts/browser-smoke.mjs` — browser gameplay, responsive, and optional real-network checks
-- `scripts/browser-multiplayer.mjs` — larger local tables, multiplayer lobbies, turn ownership and guest refresh reconnection
+- `site/index.html`: metadata, styles, and pinned browser imports.
+- `site/app.js`: game interface, saves, turn orchestration, and room integration.
+- `site/presentation.js`: medieval/Roman labels, contender identities, and original SVG emblems.
+- `site/experience.js`: welcome menu, five-chapter guide, device read-aloud, sound controls, and atmosphere settings.
+- `site/audio.js`: original procedural music and SFX; no downloaded audio assets.
+- `site/styles.css`, `site/kingdom.css`: responsive interface and historical presentation.
+- `site/scene.js`, `site/world.js`, `site/landmarks.js`: scene entry point, coastal board, and original procedural architecture.
+- `site/dice.js`: independently loaded Three.js/cannon-es dice tray.
+- `site/assets/`: generated portraits, menu panorama, social cover, prompts, and retained legacy models; see [asset provenance](site/assets/README.md).
+- `site/room.js`: peer transport, assigned seats, lobby, and private reconnect tokens.
+- `site/game/engine.js`: deterministic rules, serialization, and practice AI.
+- `test/`: engine, transport, and audio lifecycle tests.
+- `scripts/serve.mjs`: local static server.
+- `scripts/browser-smoke.mjs`: gameplay, responsive layout, and network checks.
+- `scripts/browser-experience.mjs`: menu, guide, sound controls, themes, atmosphere, and legacy-save checks.
+- `scripts/browser-multiplayer.mjs`: larger tables, lobbies, turn authority, and guest refresh reconnection.
 
-CI checks JavaScript syntax and runs the rules tests on pushes and pull requests. A separate browser job installs a pinned Playwright version, starts the game, checks interactions, and retains screenshots/logs in its browser-results artifact. The report distinguishes a completed real-network room check from an unavailable signaling/network service. Runtime browser dependencies stay out of the Node package manifest.
+CI checks JavaScript syntax, runs Node tests, and runs all three browser scripts with pinned Playwright. Screenshots and reports are retained in the `browser-results` artifact. Reports distinguish completed real-network checks from unavailable signaling/network services. See [AGENTS.md](AGENTS.md) for local browser-test commands.

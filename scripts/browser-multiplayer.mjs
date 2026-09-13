@@ -18,6 +18,7 @@ async function newPage(mobile = false, name) {
 async function ready(page, url = base) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.documentElement.dataset.game === 'ready');
+  if (await page.locator('#welcome-modal').isVisible()) await page.locator('#continue-table').click();
 }
 async function setup(page, count, mode) {
   await page.locator('[data-testid="new-game"]').click();
