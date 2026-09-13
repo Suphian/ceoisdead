@@ -1,4 +1,4 @@
-# The King Is Dead — prototype rules
+# The Toga Is Dead — prototype rules
 
 An independent browser implementation of the standard 2–4-player mechanics of *The King Is Dead: Second Edition*. Two and three players compete individually. Four players form teams: seats 1 + 3 versus seats 2 + 4. The medieval and optional Roman presentations use the same rules. No published rulebook prose or artwork is bundled.
 

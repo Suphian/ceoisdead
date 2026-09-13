@@ -67,7 +67,7 @@ try{
   report.checks.push('Three atmosphere controls and independent sound/volume preferences persist across reload');
   await page.locator('[data-testid="new-game"]').click();
   await page.locator('input[name="mode"][value="hotseat"]').check();await page.locator('#player-count').selectOption('4');await page.locator('select[name="theme"]').selectOption('roman');await page.locator('[data-testid="start-game"]').click();
-  assert.match(await page.title(),/The Emperor Is Dead/);assert.equal(await page.locator('#board-canvas').getAttribute('data-architecture'),'roman');assert.match(await page.locator('#factions').textContent(),/Senate/);assert.match(await page.locator('#region-rail').textContent(),/Latium/);
+  assert.match(await page.title(),/The Toga Is Dead/);assert.equal(await page.locator('#board-canvas').getAttribute('data-architecture'),'roman');assert.match(await page.locator('#factions').textContent(),/Senate/);assert.match(await page.locator('#region-rail').textContent(),/Latium/);
   for(let i=0;i<4;i++)await page.locator('#pass-button').click();
   assert.match(await page.locator('.round-number').textContent(),/02/);assert.equal(await page.locator('#board-event').isVisible(),true);
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.documentElement.dataset.game==='ready');

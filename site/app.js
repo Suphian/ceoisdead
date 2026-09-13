@@ -57,7 +57,7 @@ import { createExperience } from './experience.js';
     $('#app').innerHTML=`
     <div class="app-shell">
       <header class="topbar">
-        <button class="brand" data-command="menu" aria-label="Open the kingdom menu">${emblem('crown')}<span class="brand-name"><strong id="brand-title">THE KING IS DEAD</strong><small>A KINGDOM WITHOUT A CROWN</small></span></button>
+        <button class="brand" data-command="menu" aria-label="Open the kingdom menu">${emblem('crown')}<span class="brand-name"><strong id="brand-title">THE TOGA IS DEAD</strong><small>A KINGDOM WITHOUT A CROWN</small></span></button>
         <span class="header-note">An empty throne. An open invitation.</span>
         <nav class="header-actions" aria-label="Game controls">
           <button class="button button-ghost" data-command="guide">${emblem('book')} How to play</button>
@@ -110,7 +110,7 @@ import { createExperience } from './experience.js';
         <label class="field-label">Players at the table<select class="field-input" name="player-count" id="player-count"><option value="2">2 players · individual rivals</option><option value="3">3 players · individual rivals</option><option value="4">4 players · two teams of two</option></select></label>
         <p class="format-note" id="player-format-note"></p>
         <div class="form-grid"><label class="field-label">Your name · Seat 1<input class="field-input" name="player-one" maxlength="24" value="You" required autocomplete="off"></label><label class="field-label opponent-field" id="player-two-field">Seat 2<input class="field-input" name="player-two" maxlength="24" value="Friend" autocomplete="off"></label><label class="field-label opponent-field" id="player-three-field" hidden>Seat 3<input class="field-input" name="player-three" maxlength="24" value="Player 3" autocomplete="off"></label><label class="field-label opponent-field" id="player-four-field" hidden>Seat 4<input class="field-input" name="player-four" maxlength="24" value="Player 4" autocomplete="off"></label></div>
-        <label class="field-label theme-switch">Your world<select name="theme" class="field-input"><option value="medieval">The King Is Dead · coastal kingdom</option><option value="roman">The Emperor Is Dead · Roman succession</option></select></label>
+        <label class="field-label theme-switch">Your world<select name="theme" class="field-input"><option value="medieval">Medieval · coastal kingdom</option><option value="roman">Roman · imperial succession</option></select></label>
         <p class="muted">Starting a new table replaces your current local game.</p>
       </div><footer class="modal-footer"><button class="button button-primary" type="submit" data-testid="start-game">Begin the succession <span aria-hidden="true">→</span></button></footer></form>
     </dialog>

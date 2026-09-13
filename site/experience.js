@@ -1,5 +1,5 @@
 import { createAudio } from './audio.js';
-import { COURT, THEMES, emblem, regionTitle, factionTitle } from './presentation.js';
+import { COURT, GAME_TITLE, emblem, regionTitle, factionTitle } from './presentation.js';
 
 const $ = selector => document.querySelector(selector);
 const safe = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +15,7 @@ export function createExperience({ getContext, onNewGame, onLighting, onFullRule
   $('#app').insertAdjacentHTML('beforeend', `
     <dialog class="modal welcome-modal" id="welcome-modal" aria-labelledby="welcome-title">
       <div class="welcome-art"><img src="./assets/kingdom-panorama.png" alt="An illustrated coastal kingdom of stone castles, terracotta villages and jade water"><button class="seal-close" data-experience="continue" aria-label="Close the kingdom menu">×</button></div>
-      <div class="welcome-paper"><div class="welcome-heading"><div><span class="eyebrow">WELCOME TO THE COASTAL KINGDOM</span><h2 id="welcome-title">The throne is empty.<br>The court is yours.</h2></div><button class="button music-toggle" data-experience="music" aria-pressed="false">♫ <span>Music off</span></button></div>
+      <div class="welcome-paper"><div class="welcome-heading"><div><span class="eyebrow">WELCOME TO THE COASTAL KINGDOM</span><h2 id="welcome-title">${GAME_TITLE}.<br>The court is yours.</h2></div><button class="button music-toggle" data-experience="music" aria-pressed="false">♫ <span>Music off</span></button></div>
       <p class="welcome-intro">Gather your friends. Make your alliances. Guide a kingdom through eight moments that will decide its future.</p>
       <div class="menu-modes">
         <button class="menu-mode" data-experience="solo">${emblem('crown')}<strong>Play with the court</strong><span>Solo · clever practice rivals</span></button>

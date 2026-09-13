@@ -2,6 +2,7 @@ import { FACTIONS, REGIONS, CARDS } from './game/engine.js';
 
 // Skins only change presentation. Historical engine identifiers and saved moves stay stable.
 export const normalizeTheme = value => value === 'roman' ? 'roman' : 'medieval';
+export const GAME_TITLE = 'The Toga Is Dead';
 export const COURT = [
   { name: 'Lady Elara', role: 'The diplomat', image: 'elara', color: '#557c72', motto: 'A quiet word can move a kingdom.' },
   { name: 'Lord Cassian', role: 'The courtier', image: 'cassian', color: '#a45948', motto: 'Every alliance has its moment.' },
@@ -9,8 +10,8 @@ export const COURT = [
   { name: 'Lord Rowan', role: 'The scholar', image: 'rowan', color: '#a48143', motto: 'Patience is a kind of power.' },
 ];
 export const THEMES = {
-  medieval: { title: 'The King Is Dead', subtitle: 'A kingdom without a crown', place: 'kingdom', heading: 'The crown awaits.', description: 'Three factions. Eight regions. One empty throne.', ending: 'THE CORONATION', factions: { scots: 'Scottish', welsh: 'Welsh', english: 'English' } },
-  roman: { title: 'The Emperor Is Dead', subtitle: 'The fate of an empire', place: 'empire', heading: 'An empire in the balance.', description: 'Win the Senate. Rally the legions. Claim the laurel.', ending: 'THE IMPERIAL SUCCESSION', factions: { scots: 'Senate', welsh: 'Citizens', english: 'Legions' }, regions: { moray: 'Cisalpina', strathclyde: 'Etruria', lancaster: 'Latium', northumbria: 'Umbria', gwynedd: 'Sardinia', warwick: 'Campania', essex: 'Apulia', devon: 'Sicilia' } },
+  medieval: { title: GAME_TITLE, subtitle: 'A kingdom without a crown', place: 'kingdom', heading: 'The crown awaits.', description: 'Three factions. Eight regions. One empty throne.', ending: 'THE CORONATION', factions: { scots: 'Scottish', welsh: 'Welsh', english: 'English' } },
+  roman: { title: GAME_TITLE, subtitle: 'The fate of an empire', place: 'empire', heading: 'An empire in the balance.', description: 'Win the Senate. Rally the legions. Claim the laurel.', ending: 'THE IMPERIAL SUCCESSION', factions: { scots: 'Senate', welsh: 'Citizens', english: 'Legions' }, regions: { moray: 'Cisalpina', strathclyde: 'Etruria', lancaster: 'Latium', northumbria: 'Umbria', gwynedd: 'Sardinia', warwick: 'Campania', essex: 'Apulia', devon: 'Sicilia' } },
 };
 export const factionMeta = {
   scots: { color: '#528a9b', symbol: '◆' },

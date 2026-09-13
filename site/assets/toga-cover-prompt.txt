@@ -1,0 +1,15 @@
+Mode: built-in ImageGen edit
+Source: C:/Users/suphi/dev/ceoisdead/site/assets/kingdom-cover.png
+Visual verification: THE TOGA IS DEAD is correctly spelled and supporting text preserved.
+
+Use case: text-localization.
+Edit target: supplied existing coastal kingdom social-preview artwork.
+Make ONE precise title change: replace "THE KING IS DEAD" with the exact new title "THE TOGA IS DEAD".
+The changed word is TOGA, spelled T O G A. The finished title must read exactly THE TOGA IS DEAD, with no period.
+Keep the same large dark umber antique serif / small-cap treatment, gilded warmth, two-line title arrangement, typographic readability, and elegant placement. First line: THE TOGA. Second line: IS DEAD. Adjust letter spacing or title sizing only as necessary to fit gracefully.
+Preserve all remaining content: the original composition, cream-stone castle, terracotta coastal village, jade water, sage islands, sailboats, sunlight, painterly parchment texture, original decorative flourishes, palette, frame dimensions and aspect ratio.
+Preserve the supporting text exactly as it appears in the original image:
+"A kingdom without a crown."
+"2–4 players · Play at suph.app"
+Keep the subtitle and player/domain line in their existing positions and styles.
+No other changes, additions, new symbols or objects, extra copy, logos, watermarks or border. This is the same finished social banner with KING changed to TOGA, and everything else preserved.

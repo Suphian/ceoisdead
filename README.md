@@ -1,6 +1,6 @@
-# The King Is Dead
+# The Toga Is Dead
 
-A desktop-first 3D browser succession game for 2–4 players, with solo practice, same-screen play, and online invitations. The default medieval kingdom has an optional Roman presentation, **The Emperor Is Dead**. Two and three players compete individually; four players form teams: seats 1 + 3 versus seats 2 + 4. The repository and hosting project remain named `ceoisdead`.
+A desktop-first 3D browser succession game for 2–4 players, with solo practice, same-screen play, and online invitations. Choose the medieval coastal kingdom or the Roman empire. Two and three players compete individually; four players form teams: seats 1 + 3 versus seats 2 + 4. The repository and hosting project remain named `ceoisdead`.
 
 This independent prototype implements the standard mechanics described in [RULES.md](RULES.md), with original interface, architecture, illustrations, and procedural audio. The coastal board includes miniature landmarks, villages, forests, docks, boats, moving water, faction pieces, and move animations. Morning, golden-hour, and moonlight settings change the atmosphere locally.
 
