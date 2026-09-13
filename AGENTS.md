@@ -10,8 +10,9 @@ This is a static browser strategy game in the `the-toga-is-dead` repository. Med
 - `site/experience.js`: welcome menu, five-chapter guide, interactive example, browser/device read-aloud, sound controls, and atmosphere settings. Guide demonstrations must not mutate the match.
 - `site/audio.js`: original procedural music and SFX. Create/unlock AudioContext only from a user gesture. Preserve opt-in music, safe preference storage, hidden-tab suspension, bounded voices, and disposal. Duplicate unlock handlers in one click must still start music correctly.
 - `site/scene.js`, `site/world.js`, `site/landmarks.js`: scene entry point, coastal board, and original procedural architecture. Rendering consumes adapter state and must not change game state. Dispose shared geometry/materials through their owner.
-- `site/dice.js`: local physics toy, independent of rules and online transport.
-- `site/room.js`: host-authoritative peer transport. Verify guest seat, state revision, and legal action ID before applying a move. Preserve private resume tokens, frozen started seats, and pause-on-disconnect behavior.
+- `site/guidance.js` and `site/turn-feedback.js`: pure next-step coaching, turn modals, and played-card feedback. Never mutate game state.
+- `site/game-library.js`: same-device game archive. Keep seat tokens and host checkpoints out of public summaries, URLs, and logs.
+- `site/room.js`: host-authoritative peer transport. Verify guest seat, state revision, and legal action ID before applying a move. Preserve private resume tokens, frozen started seats, cosmetic character choices, host checkpoints, and pause-on-disconnect behavior.
 - `site/styles.css`, `site/kingdom.css`: responsive interface and historical presentation.
 - `site/assets/`: generated illustrations and their prompt records, plus retained legacy CC0 GLBs. Read `site/assets/README.md` before replacing or crediting assets; the current scene does not load those GLBs.
 - `scripts/serve.mjs`: dependency-free Node static server serving only `site/`.
@@ -36,11 +37,12 @@ npm run dev
 node scripts/browser-smoke.mjs
 node scripts/browser-experience.mjs
 node scripts/browser-multiplayer.mjs
+node scripts/browser-guidance.mjs
 ```
 
 Smoke checks cover gameplay and responsive layouts. Experience checks cover the menu, artwork loading, guide, first-click audio, atmosphere, Roman presentation, and legacy corporate saves. Multiplayer checks cover 3/4-player tables, shared lobbies, actual WebRTC turns, seat ownership, and guest refresh reconnection. `BASE_URL` can target another server.
 
-CI runs syntax checks, Node tests, and all three browser scripts; screenshots and reports are attached as `browser-results`. A live-network check may report unavailable signaling. Read the result before claiming that online play was validated. Audio lifecycle tests do not replace listening through speakers or headphones.
+CI runs syntax checks, Node tests, and the browser verification scripts; screenshots and reports are attached as `browser-results`. A live-network check may report unavailable signaling. Read the result before claiming that online play was validated. Audio lifecycle tests do not replace listening through speakers or headphones.
 
 ## Collaboration and quality
 

@@ -19,7 +19,7 @@ const BPM = 80;
 const BEAT = 60 / BPM;
 const LOOP_SECONDS = 24 * 4 * BEAT;
 const MAX_VOICES = 32;
-const CUES = new Set(['select', 'card', 'recruit', 'pass', 'resolve', 'win', 'dice']);
+const CUES = new Set(['select', 'card', 'recruit', 'pass', 'resolve', 'win']);
 const frequency = midi => 440 * 2 ** ((midi - 69) / 12);
 const clamp = value => Math.max(0, Math.min(1, value));
 
@@ -112,7 +112,7 @@ export function createAudio({ onChange = () => {} } = {}) {
   let unlockPromise = null, resumePromise = null;
   let scheduler = null, suspendTimer = null, shutdownTimer = null;
   let musicRunning = false, musicOrigin = 0, resumeOffset = 0, cursor = 0, cycle = 0;
-  let nextVoice = 0, cueSequence = 0;
+  let nextVoice = 0;
   const voices = new Map();
   const stringBuffers = new Map();
   const graphNodes = [];
@@ -552,10 +552,9 @@ export function createAudio({ onChange = () => {} } = {}) {
     if (!CUES.has(cue) || disposed || !unlocked || !preferences.sfx
       || preferences.volume === 0 || hidden() || context?.state !== 'running') return false;
     const at = context.currentTime + .008;
-    const gap = cue === 'win' ? 1.5 : cue === 'dice' ? .28 : .04;
+    const gap = cue === 'win' ? 1.5 : .04;
     if (at - (lastCue.get(cue) ?? -Infinity) < gap) return false;
     lastCue.set(cue, at);
-    const random = randomFrom(++cueSequence * 3359);
     try {
       if (cue === 'select') pluck('sfx', at, 69, .15, .12);
       else if (cue === 'card') {
@@ -572,10 +571,6 @@ export function createAudio({ onChange = () => {} } = {}) {
       } else if (cue === 'win') {
         [62, 65, 69, 74].forEach((midi, i) => pluck('sfx', at + i * .18, midi, 1.3, .13 - i * .012));
         [50, 57].forEach((midi, i) => pluck('sfx', at + .62 + i * .04, midi, 1.8, .11));
-      } else {
-        [.0, .047, .111, .19, .29, .43].forEach((offset, i) => {
-          wood(at + offset, 310 + random() * 330, .065 * (1 - i * .07), .07 + i * .008);
-        });
       }
       return true;
     } catch {

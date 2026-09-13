@@ -4,11 +4,13 @@ A desktop-first 3D browser succession game for 2–4 players, with solo practice
 
 This independent prototype implements the standard mechanics described in [RULES.md](RULES.md), with original interface, architecture, illustrations, and procedural audio. The coastal board includes miniature landmarks, villages, forests, docks, boats, moving water, faction pieces, and move animations. Morning, golden-hour, and moonlight settings change the atmosphere locally.
 
-**Play: [suph.app](https://suph.app)**, also [ceoisdead.vercel.app](https://ceoisdead.vercel.app). Choose **Invite your friends** in the welcome menu, or **New game → Invite friends**, select 2, 3, or 4 players, and create the table. Send the same invitation link to everyone. Guests need no Vercel or ChatGPT account. Each guest takes a seat and can change their lobby name; when everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table.
+**Play: [suph.app](https://suph.app)**, also [ceoisdead.vercel.app](https://ceoisdead.vercel.app). Choose **Invite your friends** in the welcome menu, or **New game → Invite friends**, select 2, 3, or 4 players, and create the table. Send the same invitation link to everyone. Guests need no Vercel or ChatGPT account. Each guest takes a seat and can choose their name and character; when everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table.
 
 The five-chapter **Field guide** explains play and includes a pass demonstration that leaves the match unchanged. **Read aloud** uses the browser/device speech service when available. The four illustrated contenders are decorative identities with no special powers. Music is an original 72-second Web Audio arrangement; it defaults off, starts only after interaction, and pauses in hidden tabs. Sound, volume, and atmosphere preferences stay on the current device.
 
-The optional **Dice tray** uses rigid-body physics. It is a local toy: rolls do not affect the rules or synchronize with other players. Reduced-motion mode shows the resting result immediately. The interface adapts to smaller screens and provides a DOM board when WebGL is unavailable.
+**Your turn** opens a clear turn announcement. A persistent identity badge marks your own seat, and the right-hand tips follow card selection, confirmation, and mandatory recruitment. The board displays the next region and consecutive passes needed to settle it; resolved regions are visibly locked. Opponent cards animate onto the table, and the most recently played card remains visible. Tips can be hidden without changing the match. The dice tray has been removed. A DOM board remains available when WebGL is unavailable.
+
+**My games** lists open, closed, and completed tables saved in this browser. **Save & leave table** pauses your session; **Resume** restores it. Online games need the host and all players to return. Clearing browser data removes these saves; there is no account-based cross-device library.
 
 ## Run locally
 
@@ -64,9 +66,9 @@ For local-network testing, set `HOST=0.0.0.0` and optionally `PORT` before start
 
 The Vercel project is **ceoisdead** in team **suph**, with production domain **suph.app**. `vercel.json` publishes `site/` without install or build commands. Git integration supplies production updates from `main` and branch previews for reviewing changes. The Netlify configuration remains as an alternative static-host setup.
 
-Rooms use PeerJS/WebRTC. Up to three guests connect to the host, which validates seat ownership, state revision, and legal moves before broadcasting updates. Seats freeze when the match starts; any disconnect pauses everyone. A guest can refresh the same tab or choose **Rejoin your seat** while the host remains online. A private token in that tab's session storage reclaims its seat and is never included in the shared link or public lobby.
+Rooms use PeerJS/WebRTC. Up to three guests connect to the host, which validates seat ownership, state revision, and legal moves before broadcasting updates. Seats freeze when the match starts; any disconnect pauses everyone. Guests can refresh or resume from **My games**. Their private seat token is stored with the game on this browser and is never included in the shared link or public lobby.
 
-Closing the host tab loses the room. Losing a guest tab's token prevents reclaiming a started seat. These casual rooms have no account authentication or server persistence, and some networks block direct connections. Same-screen and practice modes remain available. Existing local corporate-themed saves restore with medieval presentation while retaining players, moves, and turn order.
+Host snapshots preserve the game, original invitation ID, player choices, and reserved seats. The host can close the tab and reopen that table from **My games**; guests then reconnect with their saved seats. The table pauses while anyone is absent. An already-open host tab must be closed before the same table can be hosted again. These casual rooms have no account authentication or server persistence, and some networks block direct connections. Same-screen and practice modes remain available. Existing local corporate-themed saves restore with medieval presentation while retaining players, moves, and turn order.
 
 ## Project map
 
@@ -77,7 +79,9 @@ Closing the host tab loses the room. Losing a guest tab's token prevents reclaim
 - `site/audio.js`: original procedural music and SFX; no downloaded audio assets.
 - `site/styles.css`, `site/kingdom.css`: responsive interface and historical presentation.
 - `site/scene.js`, `site/world.js`, `site/landmarks.js`: scene entry point, coastal board, and original procedural architecture.
-- `site/dice.js`: independently loaded Three.js/cannon-es dice tray.
+- `site/guidance.js`: pure next-step instructions derived from the real game state.
+- `site/turn-feedback.js`: turn modals, opponent card animation, and persistent last action.
+- `site/game-library.js`: validated same-browser archives and private room resume records.
 - `site/assets/`: generated portraits, menu panorama, social cover, prompts, and retained legacy models; see [asset provenance](site/assets/README.md).
 - `site/room.js`: peer transport, assigned seats, lobby, and private reconnect tokens.
 - `site/game/engine.js`: deterministic rules, serialization, and practice AI.
@@ -87,4 +91,4 @@ Closing the host tab loses the room. Losing a guest tab's token prevents reclaim
 - `scripts/browser-experience.mjs`: menu, guide, sound controls, themes, atmosphere, and legacy-save checks.
 - `scripts/browser-multiplayer.mjs`: larger tables, lobbies, turn authority, and guest refresh reconnection.
 
-CI checks JavaScript syntax, runs Node tests, and runs all three browser scripts with pinned Playwright. Screenshots and reports are retained in the `browser-results` artifact. Reports distinguish completed real-network checks from unavailable signaling/network services. See [AGENTS.md](AGENTS.md) for local browser-test commands.
+CI checks JavaScript syntax, runs Node tests, and runs the browser verification scripts with pinned Playwright. Screenshots and reports are retained in the `browser-results` artifact. Reports distinguish completed real-network checks from unavailable signaling/network services. See [AGENTS.md](AGENTS.md) for local browser-test commands.

@@ -279,7 +279,7 @@ import { createLandmarks } from './landmarks.js';
     const observer=new ResizeObserver(resize);observer.observe(container);resize();
     function animate(now){
       if(disposed)return;frame=requestAnimationFrame(animate);if(document.hidden)return;
-      if(!dirty&&document.querySelector('#dice-modal[open], #new-game-modal[open], #invite-modal[open], #guide-modal[open]'))return;
+      if(!dirty&&document.querySelector('#new-game-modal[open], #invite-modal[open], #guide-modal[open]'))return;
       if(reduceMotion&&!dirty&&!flights.length&&!cameraTween)return;
       if(!dirty&&now-lastFrame<1000/(container.clientWidth<700?30:45))return;lastFrame=now;
       const t=clock.getElapsedTime();

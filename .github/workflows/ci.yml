@@ -61,6 +61,7 @@ jobs:
           node scripts/browser-smoke.mjs
           node scripts/browser-experience.mjs
           node scripts/browser-multiplayer.mjs
+          node scripts/browser-guidance.mjs
       - name: Save browser results
         if: always()
         uses: actions/upload-artifact@v7
