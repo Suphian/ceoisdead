@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { GameRoom } from '../site/room.js';
+import { GameRoom, validateHostCheckpoint } from '../site/room.js';
 
 import { createGame, applyAction, getLegalActions } from '../site/game/engine.js';
 const PROTOCOL = 'ceoisdead-room-v2';
@@ -28,6 +28,10 @@ function fakeNetwork() {
       super();
       this.id = id;
       this.connections = [];
+      if (registry.has(id)) {
+        queueMicrotask(() => this.emit('error', { type: 'unavailable-id' }));
+        return;
+      }
       registry.set(id, this);
       queueMicrotask(() => this.emit('open', id));
     }
@@ -52,7 +56,7 @@ function fakeNetwork() {
       return local;
     }
     destroy() {
-      registry.delete(this.id);
+      if (registry.get(this.id) === this) registry.delete(this.id);
       for (const connection of this.connections) connection.close();
       this.emit('close');
     }
@@ -313,6 +317,87 @@ test('lobby validation rejects malformed characters and changes to started choic
   p.host._send(record, { type: 'lobby', lobby }); await flush();
   assert.equal(p.guests[0].connected, false);
   assert.equal(p.host.ready, false);
+});
+
+test('host shutdown and restore preserves the invitation, revision, characters and reserved guest tokens', async t => {
+  const p = table(3), updates = [];
+  p.host.onCheckpoint = checkpoint => updates.push(checkpoint);
+  const invitation = await p.host.host(p.state, { character: 2 });
+  const members = await Promise.all(p.guests.map((guest, i) => guest.join(invitation.roomId, { name: 'Returning ' + i, character: 3 })));
+  p.host.start(); await flush(); p.advance(); await flush();
+  const checkpoint = p.host.exportCheckpoint();
+  assert.equal(checkpoint.state.revision, 1);
+  assert.equal(updates.at(-1).state.revision, 1);
+  assert.equal(p.guests[0].exportCheckpoint(), null);
+  p.host.close(); await flush();
+  let state = structuredClone(checkpoint.state);
+  const restored = new GameRoom({ ...p.common, onAction: action => {
+    state = applyAction(state, action.actionId); restored.broadcast(state);
+  } });
+  const returning = members.map(() => new GameRoom(p.common)), stranger = new GameRoom(p.common);
+  t.after(() => { stranger.close(); returning.forEach(guest => guest.close()); restored.close(); p.close(); });
+  await assert.rejects(stranger.join(invitation.roomId), /host is not online/);
+  const resumed = await restored.resumeHost(checkpoint);
+  assert.equal(resumed.roomId, invitation.roomId); assert.equal(resumed.id, invitation.roomId); assert.equal(resumed.url, invitation.url);
+  assert.equal(restored.started, true); assert.equal(restored.ready, false);
+  assert.deepEqual(restored.lobby.seats.map(seat => seat.connected), [true, false, false]);
+  await assert.rejects(stranger.join(invitation.roomId), /original players/);
+  const first = await returning[0].join(invitation.roomId, { token: members[0].token, name: 'Changed', character: 0 });
+  assert.equal(first.seat, members[0].seat); assert.equal(first.token, members[0].token); assert.equal(restored.ready, false);
+  await returning[1].join(invitation.roomId, { token: members[1].token }); await flush();
+  assert.equal(restored.ready, true); assert.ok(returning.every(guest => guest.ready));
+  assert.deepEqual(restored.lobby.seats.map(seat => seat.character), [2, 3, 3]);
+  assert.equal(restored.lobby.seats[1].name, 'Returning 0');
+  assert.equal(returning[0].sendAction('1/pass', 1), true); await flush();
+  assert.equal(state.revision, 2); assert.equal(state.activePlayer, 2);
+  assert.equal(restored.exportCheckpoint().state.revision, 2);
+  assert.ok(members.every(member => !JSON.stringify(restored.lobby).includes(member.token)));
+});
+
+test('a host checkpoint preserves an unfinished recruitment step', async t => {
+  const p = table(), restored = new GameRoom(p.common); t.after(() => { restored.close(); p.close(); });
+  const invitation = await p.host.host(p.state); await p.guests[0].join(invitation.roomId);
+  p.host.start(); await flush();
+  const action = getLegalActions(p.state).find(move => move.type === 'play');
+  const state = applyAction(p.state, action.id); p.host.broadcast(state);
+  const checkpoint = p.host.exportCheckpoint(); assert.equal(checkpoint.state.phase, 'summon');
+  p.host.close(); await flush(); await restored.resumeHost(checkpoint);
+  const result = restored.exportCheckpoint();
+  assert.equal(result.state.phase, 'summon'); assert.equal(result.state.activePlayer, 0);
+  assert.deepEqual(result.state.players[0].hand, state.players[0].hand);
+});
+
+test('invalid checkpoints cannot interrupt a live room and duplicate host IDs do not evict it', async t => {
+  const p = table(), duplicate = new GameRoom(p.common); t.after(() => { duplicate.close(); p.close(); });
+  const invitation = await p.host.host(p.state); await p.guests[0].join(invitation.roomId);
+  p.host.start(); await flush();
+  const checkpoint = p.host.exportCheckpoint();
+  for (const mutate of [
+    value => { value.roomId = 'invalid'; },
+    value => { value.seats[1].token = null; },
+    value => { value.seats[1].character = 4; },
+    value => { value.state.revision = 999; },
+    value => { value.seats[1].name = 'Impostor'; },
+  ]) {
+    const invalid = structuredClone(checkpoint); mutate(invalid);
+    await assert.rejects(p.host.resumeHost(invalid)); assert.equal(p.host.ready, true);
+  }
+  await assert.rejects(duplicate.resumeHost(checkpoint), /already open/);
+  assert.equal(p.host.ready, true); assert.equal(p.guests[0].ready, true);
+  assert.equal(p.host.roomId, invitation.roomId);
+});
+
+test('checkpoint callbacks are isolated from state and storage failures do not close a live game', async t => {
+  const p = table(), statuses = []; t.after(() => p.close());
+  p.host.onStatus = message => statuses.push(message);
+  p.host.onCheckpoint = checkpoint => { checkpoint.state.revision = 200; throw new Error('Storage full'); };
+  const invitation = await p.host.host(p.state); await p.guests[0].join(invitation.roomId);
+  assert.equal(p.host.start(), true); await flush();
+  assert.equal(p.host.ready, true); assert.equal(p.host.exportCheckpoint().state.revision, 0);
+  assert.ok(statuses.some(message => /save could not be stored/.test(message)));
+  const safe = validateHostCheckpoint(p.host.exportCheckpoint());
+  safe.seats[1].character = 3;
+  assert.equal(p.host.lobby.seats[1].character, 1);
 });
 
 test('host close pauses guests and refuses new actions', async t => {

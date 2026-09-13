@@ -1,3 +1,5 @@
+import { deserializeGame } from './game/engine.js';
+
 const PROTOCOL = 'ceoisdead-room-v2';
 const PEER_MODULE = 'https://esm.sh/peerjs@1.5.5?bundle';
 let peerModulePromise;
@@ -22,7 +24,7 @@ function friendlyError(error) {
   const messages = {
     'peer-unavailable': 'The host is not online. Ask them to open the room again.',
     'browser-incompatible': 'This browser cannot make an online connection. Try a current desktop browser.',
-    'unavailable-id': 'That room could not be created. Please try again.',
+    'unavailable-id': 'That table is already open in another host tab. Close the other tab, or wait a moment and try again.',
     'network': 'The room service could not be reached. Check your connection and try again.',
     'server-error': 'The room service is unavailable. Local play still works.',
     'socket-error': 'The room service connection failed. Please try again.',
@@ -43,6 +45,30 @@ function validCharacter(value) {
   return Number.isInteger(value) && value >= 0 && value < 4;
 }
 
+const validRoomId = value => typeof value === 'string' && /^ceoisdead-[a-zA-Z0-9-]{20,80}$/.test(value);
+
+/** Private device storage only: this includes the guests' seat credentials. */
+export function validateHostCheckpoint(value) {
+  const checkpoint = cloneState(value);
+  if (checkpoint.version !== 1 || !validRoomId(checkpoint.roomId) || typeof checkpoint.started !== 'boolean') {
+    throw new Error('This saved host table is invalid.');
+  }
+  const state = deserializeGame(JSON.stringify(checkpoint.state));
+  if ((!checkpoint.started && state.revision !== 0) || !Array.isArray(checkpoint.seats)
+    || checkpoint.seats.length !== state.players.length) throw new Error('The saved table does not match its game.');
+  const tokens = new Set();
+  const seats = checkpoint.seats.map((seat, i) => {
+    if (!seat || seat.seat !== i || typeof seat.name !== 'string' || !seat.name.trim() || seat.name.length > 40
+      || seat.name !== state.players[i].name || !validCharacter(seat.character)
+      || (i === 0 ? seat.token !== null : seat.token !== null && !validRoomId(seat.token))
+      || (i > 0 && checkpoint.started && seat.token === null)
+      || (seat.token !== null && tokens.has(seat.token))) throw new Error('The saved table has invalid seat information.');
+    if (seat.token !== null) tokens.add(seat.token);
+    return { seat: i, name: seat.name, character: seat.character, token: seat.token };
+  });
+  return { version: 1, roomId: checkpoint.roomId, started: checkpoint.started, state, seats };
+}
+
 /**
  * Host-star rooms for 2–4 seats. Lobby occupancy is separate from playable state.
  * Guest identity comes only from the host's connection record. Private resume
@@ -51,10 +77,10 @@ function validCharacter(value) {
 export class GameRoom {
   constructor({
     onState = () => {}, onAction = () => {}, onStatus = () => {},
-    onConnected = () => {}, onLobby = () => {}, loadPeer = loadDefaultPeer,
+    onConnected = () => {}, onLobby = () => {}, onCheckpoint = () => {}, loadPeer = loadDefaultPeer,
     getUrl = () => globalThis.location.href, timeoutMs = 15000,
   } = {}) {
-    Object.assign(this, { onState, onAction, onStatus, onConnected, onLobby });
+    Object.assign(this, { onState, onAction, onStatus, onConnected, onLobby, onCheckpoint });
     this._loadPeer = loadPeer; this._getUrl = getUrl; this._timeoutMs = timeoutMs;
     this._epoch = 0; this._lobbyGeneration = 0; this._connections = new Map();
     this.isHost = false; this.connected = false; this.ready = false;
@@ -81,7 +107,34 @@ export class GameRoom {
       const url = new URL(this._getUrl()); url.searchParams.set('room', peer.id);
       this._publishLobby();
       if (epoch !== this._epoch || !this.isHost || !this.connected) throw new Error('Connection cancelled.');
-      return { roomId: peer.id, url: url.href };
+      return { roomId: peer.id, id: peer.id, url: url.href };
+    } catch (error) {
+      if (epoch === this._epoch) this._fatal(friendlyError(error).message);
+      throw friendlyError(error);
+    }
+  }
+
+  async resumeHost(value) {
+    // Validate before closing anything, so a corrupt archive cannot interrupt a live table.
+    const checkpoint = validateHostCheckpoint(value);
+    if (checkpoint.state.phase === 'ended') throw new Error('This game is finished. Open it for review instead.');
+    this.close();
+    const epoch = this._epoch;
+    this.isHost = true; this.seat = 0; this.started = checkpoint.started;
+    this._state = checkpoint.state; this.roomId = checkpoint.roomId;
+    this._seats = checkpoint.seats.map(seat => ({ ...seat,
+      defaultName: seat.seat === 0 ? seat.name : 'Player ' + (seat.seat + 1),
+      connected: seat.seat === 0, record: null,
+    }));
+    this.onStatus('Reopening your saved table…', 'connecting');
+    try {
+      const peer = await this._openPeer(epoch, checkpoint.roomId);
+      if (epoch !== this._epoch || !this.isHost || this._peer !== peer) throw new Error('Connection cancelled.');
+      this.connected = true;
+      const url = new URL(this._getUrl()); url.searchParams.set('room', peer.id);
+      this._publishLobby();
+      if (epoch !== this._epoch || !this.isHost || !this.connected) throw new Error('Connection cancelled.');
+      return { roomId: peer.id, id: peer.id, url: url.href };
     } catch (error) {
       if (epoch === this._epoch) this._fatal(friendlyError(error).message);
       throw friendlyError(error);
@@ -111,7 +164,7 @@ export class GameRoom {
     }
   }
 
-  async _openPeer(epoch) {
+  async _openPeer(epoch, requestedId = newId()) {
     let loadTimer, Peer;
     try {
       Peer = await Promise.race([this._loadPeer(), new Promise((_, reject) => {
@@ -119,7 +172,7 @@ export class GameRoom {
       })]);
     } finally { clearTimeout(loadTimer); }
     if (epoch !== this._epoch) throw new Error('Connection cancelled.');
-    const peer = new Peer(newId(), { secure: true, debug: 0 });
+    const peer = new Peer(requestedId, { secure: true, debug: 0 });
     this._peer = peer;
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -310,12 +363,25 @@ export class GameRoom {
     const current = () => epoch === this._epoch && generation === this._lobbyGeneration;
     this._applyLobby(lobby);
     if (!current()) return;
+    this._checkpointChanged();
+    if (!current()) return;
     for (const record of [...this._connections.values()]) if (record.joined) {
       this._send(record, { type: 'lobby', lobby });
       if (!current()) return;
       this._send(record, { type: 'state', state: this._state });
       if (!current()) return;
     }
+  }
+
+  exportCheckpoint() {
+    if (!this.isHost || !this.roomId || !this._state) return null;
+    return validateHostCheckpoint({ version: 1, roomId: this.roomId, started: this.started, state: this._state,
+      seats: this._seats.map(({ seat, name, character, token }) => ({ seat, name, character, token })) });
+  }
+  _checkpointChanged() {
+    if (!this.isHost || !this.connected) return;
+    try { this.onCheckpoint(this.exportCheckpoint()); }
+    catch { this.onStatus('The table is live, but its latest save could not be stored on this device.', 'warning'); }
   }
 
   start() {
@@ -342,7 +408,8 @@ export class GameRoom {
     if (!this.isHost) return false;
     const snapshot = cloneState(state);
     if (snapshot.players?.length !== this._seats.length) return false;
-    this._state = snapshot;
+    this._state = snapshot; this._syncNames();
+    this._checkpointChanged();
     for (const record of this._connections.values()) if (record.joined) this._send(record, { type: 'state', state: this._state });
     return true;
   }
