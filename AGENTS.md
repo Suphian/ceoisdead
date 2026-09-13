@@ -38,6 +38,7 @@ node scripts/browser-smoke.mjs
 node scripts/browser-experience.mjs
 node scripts/browser-multiplayer.mjs
 node scripts/browser-guidance.mjs
+node scripts/browser-library.mjs
 ```
 
 Smoke checks cover gameplay and responsive layouts. Experience checks cover the menu, artwork loading, guide, first-click audio, atmosphere, Roman presentation, and legacy corporate saves. Multiplayer checks cover 3/4-player tables, shared lobbies, actual WebRTC turns, seat ownership, and guest refresh reconnection. `BASE_URL` can target another server.

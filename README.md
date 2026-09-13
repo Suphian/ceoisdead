@@ -4,6 +4,8 @@ A desktop-first 3D browser succession game for 2–4 players, with solo practice
 
 This independent prototype implements the standard mechanics described in [RULES.md](RULES.md), with original interface, architecture, illustrations, and procedural audio. The coastal board includes miniature landmarks, villages, forests, docks, boats, moving water, faction pieces, and move animations. Morning, golden-hour, and moonlight settings change the atmosphere locally.
 
+The [standard-rule audit](docs/RULES-AUDIT.md) maps setup, cards, borders, turns, and scoring to the official publisher rulebook and regression tests, and records the prototype's remaining edge-case conventions.
+
 **Play: [suph.app](https://suph.app)**, also [ceoisdead.vercel.app](https://ceoisdead.vercel.app). Choose **Invite your friends** in the welcome menu, or **New game → Invite friends**, select 2, 3, or 4 players, and create the table. Send the same invitation link to everyone. Guests need no Vercel or ChatGPT account. Each guest takes a seat and can choose their name and character; when everyone has joined, the host selects **Start game with everyone**. The plain domain opens the game without joining an existing table.
 
 The five-chapter **Field guide** explains play and includes a pass demonstration that leaves the match unchanged. **Read aloud** uses the browser/device speech service when available. The four illustrated contenders are decorative identities with no special powers. Music is an original 72-second Web Audio arrangement; it defaults off, starts only after interaction, and pauses in hidden tabs. Sound, volume, and atmosphere preferences stay on the current device.
@@ -90,5 +92,7 @@ Host snapshots preserve the game, original invitation ID, player choices, and re
 - `scripts/browser-smoke.mjs`: gameplay, responsive layout, and network checks.
 - `scripts/browser-experience.mjs`: menu, guide, sound controls, themes, atmosphere, and legacy-save checks.
 - `scripts/browser-multiplayer.mjs`: larger tables, lobbies, turn authority, and guest refresh reconnection.
+- `scripts/browser-guidance.mjs`: turn modals, personal identity, card/recruitment instructions, and last-card feedback in two real browsers.
+- `scripts/browser-library.mjs`: multiple saves, archive/reopen, completed review, and real host/guest fresh-tab recovery.
 
 CI checks JavaScript syntax, runs Node tests, and runs the browser verification scripts with pinned Playwright. Screenshots and reports are retained in the `browser-results` artifact. Reports distinguish completed real-network checks from unavailable signaling/network services. See [AGENTS.md](AGENTS.md) for local browser-test commands.

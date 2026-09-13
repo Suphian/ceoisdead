@@ -55,6 +55,14 @@
 .saved-game-actions{display:flex;flex-direction:column;align-items:stretch;gap:5px;flex-shrink:0;}
 .saved-game-actions .button{font-size:11px;}
 .games-empty{padding:12px 0;}
+#new-game-modal{width:min(720px,calc(100% - 32px))!important;}
+#new-game-modal .modal-card{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(94dvh - 2px);padding:24px;}
+#new-game-modal .modal-header{margin-bottom:15px;}
+#new-game-modal .modal-body{overflow-y:auto;padding-right:5px;gap:10px;}
+#new-game-modal .modal-footer{margin-top:15px;padding-top:13px;}
+#new-game-modal .character-picker{margin:8px 0;}
+#new-game-modal .format-note{margin-block:0 8px;}
+#new-game-modal .mode-option{min-height:90px;padding:13px;}
 @media(min-width:1001px){
   .action-card:hover:not(:disabled),.action-card.is-selected{transform:translateY(-2px);}
   .turn-bar{position:relative;z-index:1;}

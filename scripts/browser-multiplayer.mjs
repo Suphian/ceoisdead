@@ -7,6 +7,10 @@ const required = process.env.REQUIRE_MULTIPLAYER === '1';
 await mkdir('test-results', { recursive: true });
 const browser = await chromium.launch({ args: ['--enable-webgl', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const report = { local: [], online: [], errors: [] };
+async function dismissTurn(page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  if (await page.locator('#turn-modal').isVisible()) await page.locator('#turn-modal [data-turn-feedback="dismiss"]').click();
+}
 async function newPage(mobile = false, name) {
   const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1512, height: 982 }, isMobile: mobile, reducedMotion: 'reduce', ignoreHTTPSErrors: true });
   if (name) await context.addInitScript(value => { try { localStorage.setItem('ceoisdead.name', value); } catch {} }, name);
@@ -19,13 +23,16 @@ async function ready(page, url = base) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.documentElement.dataset.game === 'ready');
   if (await page.locator('#welcome-modal').isVisible()) await page.locator('#continue-table').click();
+  await dismissTurn(page);
 }
 async function setup(page, count, mode) {
+  await dismissTurn(page);
   await page.locator('[data-testid="new-game"]').click();
   await page.locator('input[name="mode"][value="' + mode + '"]').check();
   await page.locator('#player-count').selectOption(String(count));
   await page.locator('input[name="player-one"]').fill('Ada');
   await page.locator('[data-testid="start-game"]').click();
+  await dismissTurn(page);
   assert.equal(await page.locator('.player-card').count(), count);
 }
 async function revision(page) { return Number(await page.locator('html').getAttribute('data-revision')); }
@@ -35,12 +42,13 @@ async function synchronized(pages, expected) {
   assert.ok(rails.every(value => value === rails[0]), 'Every player sees the same influence and resolved regions');
 }
 async function playCardAndRecruit(page) {
+  await dismissTurn(page);
   await page.locator('[data-card="scottish-support"]').click();
   const move = await page.locator('#action-choice option').nth(1).getAttribute('value');
   await page.locator('#action-choice').selectOption(move);
   await page.locator('[data-command="confirm-move"]').click();
-  await page.waitForFunction(() => /Recruit one ally/.test(document.querySelector('#turn-heading').textContent), null, {timeout:15000});
-  assert.match(await page.locator('#turn-heading').textContent(), /Recruit one ally/);
+  await page.waitForFunction(() => document.querySelector('#turn-status')?.dataset.state.startsWith('recruit'), null, {timeout:15000});
+  assert.match(await page.locator('#turn-hint, #coach-title').allTextContents().then(parts => parts.join(' ')), /recruit/i);
   assert.equal(await page.locator('#pass-button').isVisible(), false);
   await page.locator('#region-rail [data-region]').first().click();
   await page.locator('#move-panel [data-execute]').first().click();
@@ -55,17 +63,19 @@ try {
     await ready(page); await setup(page, count, 'hotseat');
     for (let seat = 0; seat < count - 1; seat++) {
       assert.equal(await page.locator('.player-card.is-active .avatar').textContent(), String(seat + 1));
+      await dismissTurn(page);
       await page.locator('#pass-button').click();
     }
     await playCardAndRecruit(page);
     assert.equal(await page.locator('.player-card.is-active .avatar').textContent(), '1');
     assert.equal(await page.locator('.player-card').nth(count - 1).locator('.card-count').textContent(), '7/8');
     assert.match(await page.locator('#pass-count').textContent(), new RegExp('0 / ' + count));
-    for (let i = 0; i < count; i++) await page.locator('#pass-button').click();
+    for (let i = 0; i < count; i++) { await dismissTurn(page); await page.locator('#pass-button').click(); }
     assert.match(await page.locator('.round-number').textContent(), /02/);
     const savedRevision = await revision(page);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.documentElement.dataset.game === 'ready');
+    await dismissTurn(page);
     assert.equal(await page.locator('.player-card').count(), count);
     assert.equal(await revision(page), savedRevision);
     const widths = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: innerWidth }));
@@ -115,12 +125,14 @@ try {
       let expected = 0;
       for (let seat = 0; seat < count - 1; seat++) {
         for (let other = 0; other < count; other++) assert.equal(await pages[other].locator('#pass-button').isDisabled(), other !== seat);
+        await dismissTurn(pages[seat]);
         await pages[seat].locator('#pass-button').click(); expected++; await synchronized(pages, expected);
       }
       await playCardAndRecruit(pages.at(-1)); expected += 2; await synchronized(pages, expected);
       assert.equal(await pages.at(-1).locator('[data-card="scottish-support"]').getAttribute('class').then(c => c.includes('is-used')), true);
       assert.equal(await pages[0].locator('[data-card="scottish-support"]').getAttribute('class').then(c => c.includes('is-used')), false);
       for (let seat = 0; seat < count; seat++) {
+        await dismissTurn(pages[seat]);
         await pages[seat].locator('#pass-button').click(); expected++; await synchronized(pages, expected);
       }
       assert.match(await host.page.locator('.round-number').textContent(), /02/);
@@ -139,6 +151,7 @@ try {
       // Complete the same shared match, checking every broadcast through its ending.
       for (let step = 0; step < count * 8 && !(await host.page.locator('#result-overlay').isVisible()); step++) {
         const active = Number(await host.page.locator('.player-card.is-active .avatar').textContent()) - 1;
+        await dismissTurn(pages[active]);
         await pages[active].locator('#pass-button').click(); expected++; await synchronized(pages, expected);
       }
       assert.equal(await host.page.locator('#result-overlay').isVisible(), true);

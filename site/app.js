@@ -65,7 +65,7 @@ import { createGameLibrary } from './game-library.js';
           guestToken=token;savedCharacters=game.players.map((_,i)=>characterFor(i));
           roomData={role:'guest',roomId:joiningRoomId,seat:localSeat,url:roomLink,token};
         }
-      }else localStorage.setItem(storageKey,JSON.stringify({game,seed:game.seed,players:game.players.map(p=>p.name),teams:game.teams,mode,theme,history,characters}));
+      }else localStorage.setItem(storageKey,JSON.stringify({game,seed:game.seed,players:game.players.map(p=>p.name),teams:game.teams,mode,theme,history,characters:savedCharacters}));
       const entry=library.save({id:libraryId||undefined,game:savedGame,mode,theme,characters:savedCharacters,status:game.phase==='ended'?'closed':'open',room:roomData});
       libraryId=entry.id;localStorage.setItem('togaisdead.active-game',libraryId);
     }catch{if(!saveFailed){saveFailed=true;toast('This browser could not save progress. Keep this table open.');}}
@@ -166,7 +166,7 @@ import { createGameLibrary } from './game-library.js';
   }
 
   function render() {
-    const current=game.order[game.round], standings=getStandings(game), active=game.players[game.activePlayer], mine=isMyTurn();
+    const current=game.phase==='ended'?null:game.order[game.round], standings=getStandings(game), active=game.players[game.activePlayer], mine=isMyTurn();
     $('.app-shell').dataset.playerCount=String(game.players.length);
     document.documentElement.dataset.revision=String(game.revision);
     document.documentElement.dataset.theme=theme;
@@ -273,11 +273,11 @@ import { createGameLibrary } from './game-library.js';
     if(game.phase==='ended')$('#result-overlay').innerHTML=`<div class="result-card">${emblem('crown')}<span class="eyebrow">${game.result.type==='invasion'?'THE INVASION':THEMES[theme].ending}</span><h2>${escape(winnerText())}</h2><p>${escape(words(game.result.reason))}</p><button class="button button-primary" data-command="new-game">Begin another reign <span aria-hidden="true">↗</span></button></div>`;
   }
   function sceneState() {
-    return{theme,courts:game.players.map(p=>factionIds.map(f=>p.court[f])),regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.order[game.round]===r.id};})};
+    return{theme,courts:game.players.map(p=>factionIds.map(f=>p.court[f])),regions:REGIONS.map(r=>{const region=game.regions[r.id];return{id:r.id,name:regionName(r.id),cubes:factionIds.map(f=>region.followers[f]),controller:factionIds.includes(region.control)?factionIds.indexOf(region.control):null,unstable:region.control==='unstable',resolved:region.control!==null,current:game.phase!=='ended'&&game.order[game.round]===r.id};})};
   }
   function updateScene() { if(scene)try{scene.update(sceneState(),selectedRegion);}catch{useFallback();} }
   function renderFallback() {
-    $('#board-fallback').innerHTML=`<div class="fallback-board">${REGIONS.map(r=>{const t=game.regions[r.id];return`<button class="territory ${selectedRegion===r.id?'is-selected':''} ${game.order[game.round]===r.id?'is-current':''}" data-region="${r.id}"><strong>${escape(regionName(r.id))}</strong><span>${t.control?(t.control==='unstable'?'× Deadlock':escape(factionName(t.control))):factionIds.map(f=>token(f,t.followers[f])).join('')}</span></button>`;}).join('')}</div>`;
+    $('#board-fallback').innerHTML=`<div class="fallback-board">${REGIONS.map(r=>{const t=game.regions[r.id];return`<button class="territory ${selectedRegion===r.id?'is-selected':''} ${game.phase!=='ended'&&game.order[game.round]===r.id?'is-current':''}" data-region="${r.id}"><strong>${escape(regionName(r.id))}</strong><span>${t.control?(t.control==='unstable'?'× Deadlock':escape(factionName(t.control))):factionIds.map(f=>token(f,t.followers[f])).join('')}</span></button>`;}).join('')}</div>`;
   }
   function useFallback() {
     document.documentElement.dataset.scene='fallback';
@@ -395,7 +395,8 @@ import { createGameLibrary } from './game-library.js';
     const parts=['Seat '+(i+1)];
     if(game.teams)parts.push('Team '+(i%2+1));
     if(mode==='online'&&localSeat===i)parts.push('You');
-    if(mode==='online'&&!roomReady)parts.push(roomLobby?.seats[i]?.connected?'Joined':'Waiting');
+    if(tablePaused)parts.push('Saved');
+    else if(mode==='online'&&!roomReady)parts.push(roomLobby?.seats[i]?.connected?'Joined':'Waiting');
     else if(game.activePlayer===i&&game.phase!=='ended')parts.push('Playing');
     else if(mode==='solo'&&i>0)parts.push('Practice rival');
     return parts.join(' · ');
