@@ -1,6 +1,6 @@
 # Working on The Toga Is Dead
 
-This is a static browser strategy game in the `ceoisdead` repository. Medieval is the default presentation; Roman is optional. Keep focused branches and commit working milestones with descriptive messages. The repository is the shared source of truth.
+This is a static browser strategy game in the `the-toga-is-dead` repository. Medieval is the default presentation; Roman is optional. Keep focused branches and commit working milestones with descriptive messages. The repository is the shared source of truth.
 
 ## Module boundaries
 

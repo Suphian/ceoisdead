@@ -1,6 +1,6 @@
 # The Toga Is Dead
 
-A desktop-first 3D browser succession game for 2–4 players, with solo practice, same-screen play, and online invitations. Choose the medieval coastal kingdom or the Roman empire. Two and three players compete individually; four players form teams: seats 1 + 3 versus seats 2 + 4. The repository and hosting project remain named `ceoisdead`.
+A desktop-first 3D browser succession game for 2–4 players, with solo practice, same-screen play, and online invitations. Choose the medieval coastal kingdom or the Roman empire. Two and three players compete individually; four players form teams: seats 1 + 3 versus seats 2 + 4. The GitHub repository is `Suphian/the-toga-is-dead`; the Vercel hosting project remains `ceoisdead`.
 
 This independent prototype implements the standard mechanics described in [RULES.md](RULES.md), with original interface, architecture, illustrations, and procedural audio. The coastal board includes miniature landmarks, villages, forests, docks, boats, moving water, faction pieces, and move animations. Morning, golden-hour, and moonlight settings change the atmosphere locally.
 
@@ -15,8 +15,8 @@ The optional **Dice tray** uses rigid-body physics. It is a local toy: rolls do 
 Install [Node.js 24 or newer](https://nodejs.org/), then:
 
 ```sh
-git clone https://github.com/Suphian/ceoisdead.git
-cd ceoisdead
+git clone https://github.com/Suphian/the-toga-is-dead.git
+cd the-toga-is-dead
 npm run dev
 ```
 
